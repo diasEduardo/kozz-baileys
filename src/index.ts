@@ -46,8 +46,8 @@ initSession('tramont').then((waSocket:any) => {
 		}
 	});
 
-	boundary.handleReplyWithText(async (payload, companion, body) => {
-		console.log((await baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions))?.message);
+	boundary.handleReplyWithText((payload, companion, body) => {
+		baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions);
 	});
 
 	boundary.handleReplyWithSticker(async (payload, companion, caption) => {
