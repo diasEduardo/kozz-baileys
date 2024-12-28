@@ -27,7 +27,7 @@
 		"@guigalleta/t-parser": "^2.1.1",
 		"@whiskeysockets/baileys": "^6.7.9",
 		"axios": "^1.7.5",
-		"baileys-bottle": "../baileys-bottle/",
+		"baileys-bottle": "^2.1.2",
 		"dotenv": "^16.4.5",
 		"file-type": "16.5.4",
 		"fluent-ffmpeg": "^2.1.3",

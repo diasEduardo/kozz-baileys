@@ -12,10 +12,10 @@ const boundary = createBoundary({
 	name: 'baileysTramonta',
 });
 
-initSession('tramont').then(waSocket => {
+initSession('tramont').then((waSocket:any) => {
 	const baileys = baileysFunctions(waSocket);
 
-	waSocket.ev.on('messages.upsert', async upsert => {
+	waSocket.ev.on('messages.upsert', async (upsert:any) => {
 		for (const msg of upsert.messages) {
 			try {
 				const payload = await createMessagePayload(msg, waSocket);

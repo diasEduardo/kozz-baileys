@@ -25,7 +25,7 @@ export const initSession = (sessionName: string) =>
 	BaileysBottle.init({
 		type: 'sqlite',
 		database: 'db.sqlite',
-	}).then(async bottle => {
+	}).then(async (bottle:any) => {
 		console.log('DB initialized');
 		console.log(`Starting client "${sessionName}"`);
 
