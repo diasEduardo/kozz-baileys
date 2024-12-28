@@ -10,7 +10,7 @@ import { createFolderOnInit } from './util/utility';
 const boundary = createBoundary({
 	url: `${process.env.GATEWAY_URL}`,
 	chatPlatform: 'Baileys',
-	name: 'baileysEduTramonta',
+	name: `${process.env.BOUNDARY_ID}`,
 });
 
 createFolderOnInit();
