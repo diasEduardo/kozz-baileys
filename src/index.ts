@@ -5,6 +5,7 @@ import { convertMP4ToWebp } from './MediaConverter';
 import { createMessagePayload } from './PayloadTransformers';
 import { getMessage, saveMessage } from './Store/MessageStore';
 import createBoundary from 'kozz-boundary-maker';
+import { createFolderOnInit } from './util/utility';
 
 const boundary = createBoundary({
 	url: `${process.env.GATEWAY_URL}`,
@@ -12,10 +13,13 @@ const boundary = createBoundary({
 	name: 'baileysEduTramonta',
 });
 
+createFolderOnInit();
+
 initSession('tramont').then((waSocket:any) => {
 	const baileys = baileysFunctions(waSocket);
 
 	waSocket.ev.on('messages.upsert', async (upsert:any) => {
+		
 		for (const msg of upsert.messages) {
 			try {
 				const payload = await createMessagePayload(msg, waSocket);
