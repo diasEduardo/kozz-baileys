@@ -168,6 +168,7 @@ const baileysFunctions = (client: WaSocket) => {
 
 	const getProfilePic = async (contactId: string) => {
 		try {
+			console.log(contactId)
 			const profilePic = await client.profilePictureUrl(contactId, 'image');
 			return profilePic;
 		} catch (e) {

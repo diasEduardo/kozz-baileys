@@ -85,8 +85,11 @@ initSession('tramont').then((waSocket:any) => {
 
 	boundary.onAskResource('contact_profile_pic', async ({ id }) => {
 		console.log('getting profile pic url from', id);
-		const pic = await baileys.getProfilePic(id);
-		console.log({ pic });
+		let pic;
+		if(id){
+			pic = await baileys.getProfilePic(id);
+			console.log({ pic });
+		}
 		return pic;
 	});
 
