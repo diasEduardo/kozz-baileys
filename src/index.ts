@@ -7,9 +7,9 @@ import { getMessage, saveMessage } from './Store/MessageStore';
 import createBoundary from 'kozz-boundary-maker';
 
 const boundary = createBoundary({
-	url: 'ws://192.168.15.4:4521',
+	url: `${process.env.GATEWAY_URL}`,
 	chatPlatform: 'Baileys',
-	name: 'baileysTramonta',
+	name: 'baileysEduTramonta',
 });
 
 initSession('tramont').then((waSocket:any) => {
