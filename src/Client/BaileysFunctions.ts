@@ -26,6 +26,7 @@ const getOGQuotedMessagePayload = (messageId?: string) => {
 };
 
 const baileysFunctions = (client: WaSocket) => {
+
 	const checkNumber = async (id: string) => {
 		const [result] = await client.onWhatsApp(`${id}`);
 		return result.exists;

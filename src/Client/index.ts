@@ -8,9 +8,10 @@ import makeWASocket, {
 	Browsers,
 	DisconnectReason,
 	fetchLatestBaileysVersion,
+	makeCacheableSignalKeyStore,
 	useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
-
+import NodeCache from 'node-cache'
 import BaileysBottle from 'baileys-bottle';
 import log from '@whiskeysockets/baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
@@ -33,6 +34,7 @@ export const initSession = (sessionName: string) =>
 		logger.level = 'info';
 
 		console.log('Creating auth...');
+		const msgRetryCounterCache = new NodeCache()
 		const { state, saveCreds } = await useMultiFileAuthState('./creds');
 		console.log('Done');
 
@@ -43,7 +45,13 @@ export const initSession = (sessionName: string) =>
 			const waSocket = makeWASocket({
 				version,
 				printQRInTerminal: true,
-				auth: state,
+				auth: {
+					creds: state.creds,
+					/** caching makes the store faster to send/recv messages */
+					keys: makeCacheableSignalKeyStore(state.keys, logger),
+				},
+				msgRetryCounterCache,
+				generateHighQualityLinkPreview: true,
 				logger,
 				browser: Browsers.ubuntu('Desktop'),
 			});
