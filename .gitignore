@@ -1,3 +1,13 @@
 node_modules
 dist
 coverage
+user_auth
+.env
+db.sqlite
+medias
+default.realm
+default.realm.lock
+defaul.realm.management
+keys
+defaul.realm.note
+creds
