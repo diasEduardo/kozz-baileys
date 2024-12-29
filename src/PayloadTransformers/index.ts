@@ -3,6 +3,7 @@ import { ContactPayload, MessageReceived } from 'kozz-types';
 import context from 'src/Context';
 import { getMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
+import { clearContact, getMyContactFromCredentials } from 'src/util/utility';
 
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
 	const { fromMe, remoteJid, id, participant } = messageKey;
@@ -26,11 +27,13 @@ export const createContactPayload = async (
 	message: WAMessage
 ): Promise<ContactPayload> => {
 	const getContactId = (message: WAMessage) => {
-		return message.key.participant ?? message.key.remoteJid!;
+		if(message.key.fromMe){
+			return getMyContactFromCredentials().id;
+		}
+		return message.key.participant || message.participant || message.key.remoteJid!;
 	};
-
-	const contactId = getContactId(message);
-
+	
+	const contactId = clearContact(getContactId(message));
 	return {
 		hostAdded: false,
 		id: contactId,
