@@ -73,10 +73,11 @@ const baileysFunctions = (client: WaSocket) => {
 				? Buffer.from(media.data, 'base64url')
 				: await downloadBuffer(media.data);
 
+		
 		if (options?.asSticker) {
-			console.log(media.mimeType);
-
+			let isAnimated = false;
 			if (media.mimeType === 'video/mp4') {
+				isAnimated = true;
 				mediaData =
 					(await convertMP4ToWebp(mediaData.toString('base64url'))) ?? mediaData;
 			} else {
@@ -88,6 +89,7 @@ const baileysFunctions = (client: WaSocket) => {
 				{
 					...sendMediaOptions,
 					sticker: mediaData,
+					isAnimated: isAnimated
 				},
 				{
 					quoted: getOGQuotedMessagePayload(quoteId),
