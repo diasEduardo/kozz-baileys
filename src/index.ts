@@ -21,6 +21,10 @@ initSession('tramont').then((waSocket:any) => {
 	waSocket.ev.on('messages.upsert', async (upsert:any) => {
 		
 		for (const msg of upsert.messages) {
+			if(msg.message?.stickerMessage){
+				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`
+			}
+			
 			try {
 				const payload = await createMessagePayload(msg, waSocket);
 				if (Context.get('blockedList').includes(payload.from)) {

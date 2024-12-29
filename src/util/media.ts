@@ -18,6 +18,11 @@ export const downloadMediaFromMessage = async (
 		return undefined;
 	}
 
+	if(messageEv.message?.stickerMessage?.isAnimated){
+		messageEv.message.stickerMessage.mimetype = 'video/mp4';
+	}
+
+
 	const mediaType = messageMediaTypes.find(
 		messageType => !!messageEv.message![messageType]
 	);
