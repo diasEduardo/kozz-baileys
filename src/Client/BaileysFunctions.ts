@@ -110,7 +110,8 @@ const baileysFunctions = (client: WaSocket) => {
 		}
 
 		if (media.mimeType.startsWith('image')) {
-			return client.sendMessage(
+			console.log(mediaData)
+			return await client.sendMessage(
 				contactId,
 				{
 					...sendMediaOptions,
