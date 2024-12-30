@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"@guigalleta/t-parser": "^2.1.1",
+		"@types/node": "18",
 		"@whiskeysockets/baileys": "^6.7.9",
 		"axios": "^1.7.5",
 		"baileys-bottle": "^2.1.2",
@@ -37,6 +38,7 @@
 		"link-preview-js": "^3.0.5",
 		"mime-types": "^2.1.35",
 		"node-cache": "^5.1.2",
+		"node-webpmux": "^3.2.0",
 		"open": "^10.1.0",
 		"qrcode-terminal": "^0.12.0",
 		"realm": "^12.13.1",

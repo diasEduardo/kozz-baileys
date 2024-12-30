@@ -1,10 +1,12 @@
 import { WaSocket } from '.';
 import { AnyMessageContent, proto } from '@whiskeysockets/baileys';
-import { Media } from 'kozz-types';
+import { ContactPayload, Media } from 'kozz-types';
 import context from '../Context';
 import { downloadBuffer } from 'src/util/downloadBuffer';
 import { convertJpegToWebp, convertMP4ToWebp } from 'src/MediaConverter';
 import { getMessage } from 'src/Store/MessageStore';
+import { getFormattedDateAndTime } from 'src/util/utility';
+const webp = require('node-webpmux'); // import has type error.
 
 const database = context.get('database');
 
@@ -59,6 +61,7 @@ const baileysFunctions = (client: WaSocket) => {
 			mentionedList?: string[];
 			asSticker?: boolean;
 			asVoiceNote?: boolean;
+			contact?:ContactPayload
 		},
 		quoteId?: string
 	) => {
@@ -82,6 +85,32 @@ const baileysFunctions = (client: WaSocket) => {
 					(await convertMP4ToWebp(mediaData.toString('base64url'))) ?? mediaData;
 			} else {
 				mediaData = (await convertJpegToWebp(media.data)) ?? mediaData;
+			}
+
+			const metadata = {
+				name :[
+					'Criado por',
+					`${options?.contact?.publicName}`,
+					`${getFormattedDateAndTime()}`,
+				].join('\n'),
+				author:'Kozz-Bot\ndo Tramonta',
+				categories:['☺️']
+			}
+			if (metadata.name || metadata.author) {
+				const img = new webp.Image();
+				const hash = 'EduTramontaBot';
+				const stickerPackId = hash;
+				const packname = metadata.name;
+				const author = metadata.author;
+				const categories = metadata.categories || [''];
+				const json = { 'sticker-pack-id': stickerPackId, 'sticker-pack-name': packname, 'sticker-pack-publisher': author, 'emojis': categories };
+				let exifAttr = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
+				let jsonBuffer = Buffer.from(JSON.stringify(json), 'utf8');
+				let exif = Buffer.concat([exifAttr, jsonBuffer]);
+				exif.writeUIntLE(jsonBuffer.length, 14, 4);
+				await img.load(Buffer.from(mediaData as any, 'base64'));
+				img.exif = exif;
+				mediaData = (await img.save(null));
 			}
 
 			return client.sendMessage(

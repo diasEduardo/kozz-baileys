@@ -21,6 +21,7 @@ initSession('tramont').then((waSocket:any) => {
 	waSocket.ev.on('messages.upsert', async (upsert:any) => {
 		
 		for (const msg of upsert.messages) {
+			console.log(`processando mensagem ${msg.key.id}`)
 			if(msg.message?.stickerMessage){
 				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`
 			}
@@ -55,6 +56,7 @@ initSession('tramont').then((waSocket:any) => {
 	});
 
 	boundary.handleReplyWithSticker(async (payload, companion, caption) => {
+		console.log(payload.contact)
 		baileys.sendMedia(
 			payload.chatId,
 			payload.media!,
@@ -62,6 +64,7 @@ initSession('tramont').then((waSocket:any) => {
 				caption,
 				mentionedList: companion.mentions,
 				asSticker: true,
+				contact:payload.contact
 			},
 			payload.quoteId
 		);
