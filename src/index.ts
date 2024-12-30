@@ -56,7 +56,6 @@ initSession('tramont').then((waSocket:any) => {
 	});
 
 	boundary.handleReplyWithSticker(async (payload, companion, caption) => {
-		console.log(payload.contact)
 		baileys.sendMedia(
 			payload.chatId,
 			payload.media!,
