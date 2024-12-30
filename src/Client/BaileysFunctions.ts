@@ -61,7 +61,8 @@ const baileysFunctions = (client: WaSocket) => {
 			mentionedList?: string[];
 			asSticker?: boolean;
 			asVoiceNote?: boolean;
-			contact?:ContactPayload
+			contact?:ContactPayload;
+			emojis?:string[];
 		},
 		quoteId?: string
 	) => {
@@ -88,22 +89,21 @@ const baileysFunctions = (client: WaSocket) => {
 			}
 
 			const metadata = {
-				name :[
-					'Criado por',
-					`${options?.contact?.publicName}`,
-					`${getFormattedDateAndTime()}`,
-				].join('\n'),
-				author:'Kozz-Bot\ndo Tramonta',
-				categories:['☺️']
+				name :`Criado por ${options?.contact?.publicName}\n${getFormattedDateAndTime()}\n${options?.emojis[0]||''}\n`,
+				author:'\nKozz-Bot\ndo Tramonta'
 			}
 			if (metadata.name || metadata.author) {
 				const img = new webp.Image();
-				const hash = 'EduTramontaBot';
-				const stickerPackId = hash;
+				const stickerPackId = 'EduTramontaBot';
 				const packname = metadata.name;
 				const author = metadata.author;
-				const categories = metadata.categories || [''];
-				const json = { 'sticker-pack-id': stickerPackId, 'sticker-pack-name': packname, 'sticker-pack-publisher': author, 'emojis': categories };
+				const emojis = options?.emojis || [''];
+				const json = { 
+					'sticker-pack-id': stickerPackId, 
+					'sticker-pack-name': packname, 
+					'sticker-pack-publisher': author, 
+					'emojis': emojis
+				 };
 				let exifAttr = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
 				let jsonBuffer = Buffer.from(JSON.stringify(json), 'utf8');
 				let exif = Buffer.concat([exifAttr, jsonBuffer]);

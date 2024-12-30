@@ -49,6 +49,7 @@ export const downloadMediaFromMessage = async (
 			sizeInBytes: Number(messageEv.message[mediaType]!.fileLength!) || null,
 			transportType: 'b64',
 			stickerTags: undefined,
+			emojis:undefined,
 		};
 	} catch (e) {
 		console.warn(e);

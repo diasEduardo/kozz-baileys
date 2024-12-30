@@ -63,7 +63,8 @@ initSession('tramont').then((waSocket:any) => {
 				caption,
 				mentionedList: companion.mentions,
 				asSticker: true,
-				contact:payload.contact
+				contact:payload.contact,
+				emojis:payload.media?.emojis
 			},
 			payload.quoteId
 		);
