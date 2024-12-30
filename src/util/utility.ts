@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { ContactPayload } from 'kozz-types';
 
 export const createFolderOnInit = () =>{
 
@@ -26,5 +27,12 @@ export const getMyContactFromCredentials = () =>{
     let jsonCred = JSON.parse(credFile.toString());
     jsonCred.me.id = clearContact(jsonCred.me.id!);
     return jsonCred.me;
-    
+}
+
+export const replaceTaggedName = (text:string,tagged:ContactPayload[])=>{
+	text = text.replace(/\@([0-9]*)/g,`$1@s.whatsapp.net`);
+    tagged.forEach((contact) =>{
+        text = text.replace(contact.id,contact.publicName);
+    });
+    return text;
 }

@@ -4,7 +4,7 @@ import context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
 import { getMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
-import { clearContact, getMyContactFromCredentials } from 'src/util/utility';
+import { clearContact, getMyContactFromCredentials, replaceTaggedName } from 'src/util/utility';
 
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
 	const { fromMe, remoteJid, id, participant } = messageKey;
@@ -53,7 +53,7 @@ export const createMessagePayload = async (
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
 	const taggedContact = await createtTaggedContactPayload(message);
-
+	
 	const messageBody =
 		message.message?.conversation ||
 		message.message?.extendedTextMessage?.text ||
@@ -61,6 +61,10 @@ export const createMessagePayload = async (
 		message?.message?.videoMessage?.caption ||
 		'';
 
+	let taggedConctactFriendlyBody = messageBody;
+	if (taggedContact.length){
+		taggedConctactFriendlyBody = replaceTaggedName(messageBody,taggedContact);
+	}
 	const messageType = message.message?.extendedTextMessage
 		? 'TEXT'
 		: message.message?.audioMessage
@@ -110,7 +114,7 @@ export const createMessagePayload = async (
 			.replace(/[\u0300-\u036f]/g, ''),
 		taggedContacts: taggedContact,
 		timestamp: new Date().getTime(),
-		taggedConctactFriendlyBody: messageBody,
+		taggedConctactFriendlyBody: taggedConctactFriendlyBody,
 		media,
 	};
 };
@@ -119,14 +123,14 @@ export const createtTaggedContactPayload = async (
 	message: WAMessage
 ): Promise<ContactPayload[]> => {
 	let contacts:ContactPayload[] = [];
-	const me = getMyContactFromCredentials();
-	message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.forEach(
-		async(contactId:string) =>{
+	if(message.message?.extendedTextMessage?.contextInfo?.mentionedJid){
+		for (const contactId of message.message?.extendedTextMessage?.contextInfo?.mentionedJid){
 			const contact = await getContact(contactId);
 			if(contact){
 				contacts.push(contact);
 			}				
 		}
-	)
+	}	
+	
 	return contacts;
 }
