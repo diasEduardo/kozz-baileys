@@ -89,7 +89,7 @@ const baileysFunctions = (client: WaSocket) => {
 			}
 			const emoji = options?.emojis || [''];
 			const metadata = {
-				name :`Criado por ${options?.contact?.publicName}\n${getFormattedDateAndTime()}\n${emojis[0]}\n`,
+				name :`Criado por ${options?.contact?.publicName}\n${getFormattedDateAndTime()}\n${emoji[0]}\n`,
 				author:'\nKozz-Bot\ndo Tramonta'
 			}
 			if (metadata.name || metadata.author) {
