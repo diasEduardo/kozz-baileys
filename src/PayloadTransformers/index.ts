@@ -1,6 +1,7 @@
 import { WAMessage, WASocket, proto } from '@whiskeysockets/baileys';
 import { ContactPayload, MessageReceived } from 'kozz-types';
 import context from 'src/Context';
+import { getContact } from 'src/Store/ContactStore';
 import { getMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, getMyContactFromCredentials } from 'src/util/utility';
@@ -51,6 +52,7 @@ export const createMessagePayload = async (
 ): Promise<MessageReceived> => {
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
+	const taggedContact = await createtTaggedContactPayload(message);
 
 	const messageBody =
 		message.message?.conversation ||
@@ -106,9 +108,25 @@ export const createMessagePayload = async (
 			.toLowerCase()
 			.normalize('NFKD')
 			.replace(/[\u0300-\u036f]/g, ''),
-		taggedContacts: [],
+		taggedContacts: taggedContact,
 		timestamp: new Date().getTime(),
 		taggedConctactFriendlyBody: messageBody,
 		media,
 	};
 };
+
+export const createtTaggedContactPayload = async (
+	message: WAMessage
+): Promise<ContactPayload[]> => {
+	let contacts:ContactPayload[] = [];
+	const me = getMyContactFromCredentials();
+	message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.forEach(
+		async(contactId:string) =>{
+			const contact = await getContact(contactId);
+			if(contact){
+				contacts.push(contact);
+			}				
+		}
+	)
+	return contacts;
+}
