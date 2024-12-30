@@ -23,7 +23,8 @@ export const clearContact = (Contact:string)=>{
 
 export const getMyContactFromCredentials = () =>{
     const credFile = fs.readFileSync('./creds/creds.json');
-    const jsonCred = JSON.parse(credFile.toString());
+    let jsonCred = JSON.parse(credFile.toString());
+    jsonCred.me.id = clearContact(jsonCred.me.id!);
     return jsonCred.me;
     
 }

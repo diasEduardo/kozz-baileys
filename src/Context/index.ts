@@ -1,4 +1,5 @@
 import { initDatabase } from 'src/Store/DataManager';
+import { getMyContactFromCredentials } from 'src/util/utility';
 
 type ContextData = {
 	blockedList: string[];
@@ -12,12 +13,14 @@ type ContextData = {
 
 const AppContext = () => {
 	// Initial context
+	const me = getMyContactFromCredentials();
+
 	let contextData: ContextData = {
 		blockedList: [],
 		ready: false,
 		hostData: {
-			id: '',
-			pushName: '',
+			id: me.id,
+			pushName: me.name,
 		},
 		database: initDatabase(),
 	};
