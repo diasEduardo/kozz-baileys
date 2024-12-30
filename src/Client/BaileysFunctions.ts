@@ -87,9 +87,9 @@ const baileysFunctions = (client: WaSocket) => {
 			} else {
 				mediaData = (await convertJpegToWebp(media.data)) ?? mediaData;
 			}
-
+			const emoji = options?.emojis || [''];
 			const metadata = {
-				name :`Criado por ${options?.contact?.publicName}\n${getFormattedDateAndTime()}\n${options?.emojis[0]||''}\n`,
+				name :`Criado por ${options?.contact?.publicName}\n${getFormattedDateAndTime()}\n${emojis[0]}\n`,
 				author:'\nKozz-Bot\ndo Tramonta'
 			}
 			if (metadata.name || metadata.author) {
@@ -97,7 +97,7 @@ const baileysFunctions = (client: WaSocket) => {
 				const stickerPackId = 'EduTramontaBot';
 				const packname = metadata.name;
 				const author = metadata.author;
-				const emojis = options?.emojis || [''];
+				const emojis = emoji;
 				const json = { 
 					'sticker-pack-id': stickerPackId, 
 					'sticker-pack-name': packname, 
