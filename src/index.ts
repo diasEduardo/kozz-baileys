@@ -1,5 +1,5 @@
 import { initSession } from './Client';
-import baileysFunctions from './Client/BaileysFunctions';
+import baileysFunctions, { inlineCommandMapFunctions } from './Client/BaileysFunctions';
 import Context from './Context';
 import { convertMP4ToWebp } from './MediaConverter';
 import { createMessagePayload } from './PayloadTransformers';
@@ -7,10 +7,12 @@ import { getMessage, saveMessage } from './Store/MessageStore';
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 
+
 const boundary = createBoundary({
 	url: `${process.env.GATEWAY_URL}`,
 	chatPlatform: 'Baileys',
 	name: `${process.env.BOUNDARY_ID}`,
+	inlineCommandMap:inlineCommandMapFunctions()
 });
 
 createFolderOnInit();

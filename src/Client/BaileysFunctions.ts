@@ -5,7 +5,9 @@ import context from '../Context';
 import { downloadBuffer } from 'src/util/downloadBuffer';
 import { convertJpegToWebp, convertMP4ToWebp } from 'src/MediaConverter';
 import { getMessage } from 'src/Store/MessageStore';
-import { getFormattedDateAndTime } from 'src/util/utility';
+import { generateHash, getFormattedDateAndTime } from 'src/util/utility';
+import { CompanionObject, InlineCommandMap } from 'kozz-boundary-maker/dist/InlineCommand';
+import { getGroupChat } from 'src/Store/ChatStore';
 const webp = require('node-webpmux'); // import has type error.
 
 const database = context.get('database');
@@ -94,7 +96,7 @@ const baileysFunctions = (client: WaSocket) => {
 			}
 			if (metadata.name || metadata.author) {
 				const img = new webp.Image();
-				const stickerPackId = 'EduTramontaBot';
+				const stickerPackId = generateHash(32);
 				const packname = metadata.name;
 				const author = metadata.author;
 				const emojis = emoji;
@@ -113,71 +115,91 @@ const baileysFunctions = (client: WaSocket) => {
 				mediaData = (await img.save(null));
 			}
 
-			return client.sendMessage(
-				contactId,
-				{
-					...sendMediaOptions,
-					sticker: mediaData,
-					isAnimated: isAnimated
-				},
-				{
-					quoted: getOGQuotedMessagePayload(quoteId),
-				}
-			);
+			try{
+				return client.sendMessage(
+					contactId,
+					{
+						...sendMediaOptions,
+						sticker: mediaData,
+						isAnimated: isAnimated
+					},
+					{
+						quoted: getOGQuotedMessagePayload(quoteId),
+					}
+				);
+			}catch(e){
+				return undefined;
+			}
+			
 		}
 
 		if (media.mimeType.startsWith('audio')) {
-			return client.sendMessage(
-				contactId,
-				{
-					...sendMediaOptions,
-					audio: mediaData,
-					ptt: options?.asVoiceNote,
-				},
-				{
-					quoted: getOGQuotedMessagePayload(quoteId),
-				}
-			);
+			
+			try{
+				return client.sendMessage(
+					contactId,
+					{
+						...sendMediaOptions,
+						audio: mediaData,
+						ptt: options?.asVoiceNote,
+					},
+					{
+						quoted: getOGQuotedMessagePayload(quoteId),
+					}
+				);
+			}catch(e){
+				return undefined;
+			}
 		}
 
 		if (media.mimeType.startsWith('image')) {
-			console.log(mediaData)
-			return await client.sendMessage(
-				contactId,
-				{
-					...sendMediaOptions,
-					image: mediaData,
-				},
-				{
-					quoted: getOGQuotedMessagePayload(quoteId),
-				}
-			);
+			try{
+				return await client.sendMessage(
+					contactId,
+					{
+						...sendMediaOptions,
+						image: mediaData,
+					},
+					{
+						quoted: getOGQuotedMessagePayload(quoteId),
+					}
+				);
+			}catch(e){
+				return undefined;
+			}
 		}
 
 		if (media.mimeType.startsWith('video')) {
+			try{
+				return client.sendMessage(
+					contactId,
+					{
+						...sendMediaOptions,
+						video: mediaData,
+					},
+					{
+						quoted: getOGQuotedMessagePayload(quoteId),
+					}
+				);
+			}catch(e){
+				return undefined;
+			}
+		}
+		try{
 			return client.sendMessage(
 				contactId,
 				{
 					...sendMediaOptions,
-					video: mediaData,
+					text: '',
+					document: mediaData,
 				},
 				{
 					quoted: getOGQuotedMessagePayload(quoteId),
 				}
 			);
+		}catch(e){
+			return undefined;
 		}
-
-		return client.sendMessage(
-			contactId,
-			{
-				...sendMediaOptions,
-				text: '',
-				document: mediaData,
-			},
-			{
-				quoted: getOGQuotedMessagePayload(quoteId),
-			}
-		);
 	};
 
 	const reactMessage = async (messageId: string, emoji: string) => {
@@ -200,7 +222,6 @@ const baileysFunctions = (client: WaSocket) => {
 
 	const getProfilePic = async (contactId: string) => {
 		try {
-			console.log(contactId)
 			const profilePic = await client.profilePictureUrl(contactId, 'image');
 			return profilePic;
 		} catch (e) {
@@ -239,5 +260,114 @@ const baileysFunctions = (client: WaSocket) => {
 		deleteMessage,
 	};
 };
+
+export const inlineCommandMapFunctions = ():InlineCommandMap => {
+	const mention = async (companion:CompanionObject, data:{id:string},payload:any) => {
+			return {			
+			companion: {
+				mentions: [...companion.mentions, data.id],
+			},
+			stringValue: '@' + data.id.replace('@s.whatsapp.net', ''),
+		}
+	}
+
+	const invisiblemention = async (companion:CompanionObject, data:{id:string},payload:any) => {
+		return {			
+		companion: {
+			mentions: [...companion.mentions, data.id],
+		},
+		stringValue: '',
+	}
+}
+	const tageveryone = async (companion:CompanionObject, data:{except:string[]},payload:any) => {
+		
+		let mentions: string[] = [];
+
+		const chatInfo = await getGroupChat(payload.chatId);
+		
+		if (chatInfo) {
+			mentions = chatInfo.participants
+				.map(member => member.id)
+				.filter(member => !data.except.includes(member));
+		}
+		
+		return {			
+			companion: {
+				mentions: [...companion.mentions,...mentions],
+			},
+			stringValue: '',
+		}
+	}
+	const bold = async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+			companion: {
+				mentions: [...companion.mentions],
+			},
+			stringValue: data.content,
+		}
+	}
+	const italic= async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+			companion: {
+				mentions: [...companion.mentions],
+			},
+			stringValue: data.content,
+		}
+	}
+	const underscore= async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+			companion: {
+				mentions: [...companion.mentions],
+			},
+			stringValue: data.content,
+		}
+	}
+	const stroke= async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+			companion: {
+				mentions: [...companion.mentions],
+			},
+			stringValue: data.content,
+		}
+	}
+	const paragraph= async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+			companion: {
+				mentions: [...companion.mentions],
+			},
+			stringValue: data.content,
+		}
+	}
+	const listitem= async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+			companion: {
+				mentions: [...companion.mentions],
+			},
+			stringValue: data.content,
+		}
+	}
+	const monospace= async (companion:CompanionObject, data:{content:string},payload:any) => {
+		return {			
+		companion: {
+			mentions: [...companion.mentions],
+		},
+		stringValue: data.content,
+		}
+	}
+
+
+	return {
+		mention,
+		invisiblemention,
+		tageveryone,
+		bold,
+		italic,
+		underscore,
+		stroke,
+		paragraph,
+		listitem,
+		monospace,
+	}
+}
 
 export default baileysFunctions;

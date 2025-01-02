@@ -81,10 +81,9 @@ export const initSession = (sessionName: string) =>
 				if (payload[0].id?.includes('@g.us')) {
 					const groupChatInfo = await getGroupChat(payload[0].id);
 					const oneHour = 60 * 60 * 1000;
-
+					
 					if (
-						!groupChatInfo ||
-						groupChatInfo.lastFetched <= new Date().getTime() + oneHour
+						groupChatInfo?.lastFetched! <= new Date().getTime() + oneHour
 					) {
 						return;
 					}
