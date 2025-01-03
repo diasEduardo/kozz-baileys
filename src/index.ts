@@ -6,6 +6,7 @@ import { createMessagePayload } from './PayloadTransformers';
 import { getMessage, saveMessage } from './Store/MessageStore';
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
+import { getGroupChat } from './Store/ChatStore';
 
 
 const boundary = createBoundary({
@@ -100,6 +101,12 @@ initSession('tramont').then((waSocket:any) => {
 			console.log({ pic });
 		}
 		return pic;
+	});
+
+	boundary.onAskResource('group_chat_info', async ({ id }) => {
+		console.log('getting group chart info from', id);
+		const chatInfo = await getGroupChat(id);
+		return chatInfo;
 	});
 
 	boundary.hanldeDeleteMessage(payload => {
