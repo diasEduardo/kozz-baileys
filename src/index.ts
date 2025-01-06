@@ -24,6 +24,8 @@ initSession('tramont').then((waSocket:any) => {
 	waSocket.ev.on('messages.upsert', async (upsert:any) => {
 		
 		for (const msg of upsert.messages) {
+			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
+			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message)
 			console.log(`processando mensagem ${msg.key.id}`)
 			if(msg.message?.stickerMessage){
 				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`
