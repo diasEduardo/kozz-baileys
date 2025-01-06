@@ -16,6 +16,7 @@ import BaileysBottle from 'baileys-bottle';
 import log from '@whiskeysockets/baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
 import { getGroupChat, saveGroupChat } from 'src/Store/ChatStore';
+import { setMeFromCreds } from 'src/Context';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
@@ -55,11 +56,13 @@ export const initSession = (sessionName: string) =>
 				logger,
 				browser: Browsers.ubuntu('Desktop'),
 			});
-
+			setMeFromCreds();
 			waSocket.ev.process(async events => {
 				// credentials updated -- save them
 				if (events['creds.update']) await saveCreds();
-
+				if(events['messaging-history.set']?.progress){
+					console.log(`CHAT SYNC ${events['messaging-history.set']?.progress}%`)
+				}
 				if (events['connection.update']) {
 					const update = events['connection.update'];
 					console.log('CONNECTION UPDATED =>', update);

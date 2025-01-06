@@ -11,17 +11,30 @@ type ContextData = {
 	database: ReturnType<typeof initDatabase>;
 };
 
+export const setMeFromCreds = () =>{
+	let me = {
+		id: '',
+		pushName: '',
+	}
+	try{
+		
+		const meCred = getMyContactFromCredentials();
+		me.id = meCred.id;
+		me.pushName = meCred.name;
+	}catch(e){
+
+	}
+	return me;
+}
+
 const AppContext = () => {
 	// Initial context
-	const me = getMyContactFromCredentials();
+	const me = setMeFromCreds();
 
 	let contextData: ContextData = {
 		blockedList: [],
 		ready: false,
-		hostData: {
-			id: me.id,
-			pushName: me.name,
-		},
+		hostData: me,
 		database: initDatabase(),
 	};
 

@@ -1,10 +1,11 @@
 import { WAMessage, WASocket, proto } from '@whiskeysockets/baileys';
 import { ContactPayload, MessageReceived } from 'kozz-types';
+import Context from 'src/Context';
 import context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
 import { getMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
-import { clearContact, getMyContactFromCredentials, replaceTaggedName } from 'src/util/utility';
+import { clearContact, replaceTaggedName } from 'src/util/utility';
 
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
 	const { fromMe, remoteJid, id, participant } = messageKey;
@@ -29,12 +30,13 @@ export const createContactPayload = async (
 ): Promise<ContactPayload> => {
 	const getContactId = (message: WAMessage) => {
 		if(message.key.fromMe){
-			return getMyContactFromCredentials().id;
+			return Context.get('hostData').id;
 		}
 		return message.key.participant || message.participant || message.key.remoteJid!;
 	};
 	
 	const contactId = clearContact(getContactId(message));
+	
 	return {
 		hostAdded: false,
 		id: contactId,
