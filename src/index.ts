@@ -12,7 +12,7 @@ import { getGroupChat } from './Store/ChatStore';
 export const boundary = createBoundary({
 	url: `${process.env.GATEWAY_URL}`,
 	chatPlatform: 'Baileys',
-	name: `${process.env.BOUNDARY_ID}`,
+	name: `${process.env.BOUNDARY_NAME}`,
 	inlineCommandMap:inlineCommandMapFunctions()
 });
 
