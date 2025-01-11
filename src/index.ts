@@ -72,8 +72,25 @@ initSession('tramont').then((waSocket:any) => {
 
 	boundary.onAskResource('group_chat_info', async ({ id }) => {
 		console.log('getting group chart info from', id);
-		const chatInfo = await getGroupChat(id);
-		return chatInfo;
+		if(id.includes('@g.us')){
+			const chatInfo = await getGroupChat(id);
+			return chatInfo;
+		}
+		console.log(`${id} is not a valid group`);
+		return {};
+		
+		
+	});
+
+	boundary.onAskResource('group_admin_list', async ({ id }) => {
+		console.log('getting group admin list from', id);
+		if(id.includes('@g.us')){
+			let chatInfo = await getGroupChat(id);
+			return {'adminList':chatInfo?.participants.filter((member:any) => member.admin)};
+		}
+		console.log(`${id} is not a valid group`);
+		return {};
+		
 	});
 
 	boundary.hanldeDeleteMessage(payload => {
