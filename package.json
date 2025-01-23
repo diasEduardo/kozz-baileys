@@ -8,6 +8,7 @@
 	"scripts": {
 		"dev": "link-module-alias && concurrently \"tsc --watch\" \"nodemon dist/index.js --ignore ./creds\"",
 		"start": "tsc && link-module-alias && node dist/index.js",
+		"startdev": "tsc && link-module-alias && node -r dotenv/config dist/index.js dotenv_config_path=./.env.dev",
 		"test": "jest",
 		"docs": "typedoc ./src/index.ts",
 		"postinstall": "patch-package"
@@ -25,9 +26,10 @@
 	},
 	"dependencies": {
 		"@guigalleta/t-parser": "^2.1.1",
+		"@types/node": "18",
 		"@whiskeysockets/baileys": "^6.7.9",
 		"axios": "^1.7.5",
-		"baileys-bottle": "../baileys-bottle/",
+		"baileys-bottle": "^2.1.2",
 		"dotenv": "^16.4.5",
 		"file-type": "16.5.4",
 		"fluent-ffmpeg": "^2.1.3",
@@ -36,6 +38,8 @@
 		"link-module-alias": "^1.2.0",
 		"link-preview-js": "^3.0.5",
 		"mime-types": "^2.1.35",
+		"node-cache": "^5.1.2",
+		"node-webpmux": "^3.2.0",
 		"open": "^10.1.0",
 		"qrcode-terminal": "^0.12.0",
 		"realm": "^12.13.1",

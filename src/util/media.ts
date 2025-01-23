@@ -18,6 +18,11 @@ export const downloadMediaFromMessage = async (
 		return undefined;
 	}
 
+	if(messageEv.message?.stickerMessage?.isAnimated){
+		messageEv.message.stickerMessage.mimetype = 'video/mp4';
+	}
+
+
 	const mediaType = messageMediaTypes.find(
 		messageType => !!messageEv.message![messageType]
 	);
@@ -44,6 +49,7 @@ export const downloadMediaFromMessage = async (
 			sizeInBytes: Number(messageEv.message[mediaType]!.fileLength!) || null,
 			transportType: 'b64',
 			stickerTags: undefined,
+			emojis:undefined,
 		};
 	} catch (e) {
 		console.warn(e);

@@ -1,8 +1,11 @@
 import { WAMessage, WASocket, proto } from '@whiskeysockets/baileys';
 import { ContactPayload, MessageReceived } from 'kozz-types';
+import Context from 'src/Context';
 import context from 'src/Context';
+import { getContact } from 'src/Store/ContactStore';
 import { getMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
+import { clearContact, replaceTaggedName } from 'src/util/utility';
 
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
 	const { fromMe, remoteJid, id, participant } = messageKey;
@@ -26,11 +29,14 @@ export const createContactPayload = async (
 	message: WAMessage
 ): Promise<ContactPayload> => {
 	const getContactId = (message: WAMessage) => {
-		return message.key.participant ?? message.key.remoteJid!;
+		if(message.key.fromMe){
+			return Context.get('hostData').id;
+		}
+		return message.key.participant || message.participant || message.key.remoteJid!;
 	};
-
-	const contactId = getContactId(message);
-
+	
+	const contactId = clearContact(getContactId(message));
+	
 	return {
 		hostAdded: false,
 		id: contactId,
@@ -48,7 +54,8 @@ export const createMessagePayload = async (
 ): Promise<MessageReceived> => {
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
-
+	const taggedContact = await createtTaggedContactPayload(message);
+	
 	const messageBody =
 		message.message?.conversation ||
 		message.message?.extendedTextMessage?.text ||
@@ -56,6 +63,10 @@ export const createMessagePayload = async (
 		message?.message?.videoMessage?.caption ||
 		'';
 
+	let taggedConctactFriendlyBody = messageBody;
+	if (taggedContact.length){
+		taggedConctactFriendlyBody = replaceTaggedName(messageBody,taggedContact);
+	}
 	const messageType = message.message?.extendedTextMessage
 		? 'TEXT'
 		: message.message?.audioMessage
@@ -103,9 +114,25 @@ export const createMessagePayload = async (
 			.toLowerCase()
 			.normalize('NFKD')
 			.replace(/[\u0300-\u036f]/g, ''),
-		taggedContacts: [],
+		taggedContacts: taggedContact,
 		timestamp: new Date().getTime(),
-		taggedConctactFriendlyBody: messageBody,
+		taggedConctactFriendlyBody: taggedConctactFriendlyBody,
 		media,
 	};
 };
+
+export const createtTaggedContactPayload = async (
+	message: WAMessage
+): Promise<ContactPayload[]> => {
+	let contacts:ContactPayload[] = [];
+	if(message.message?.extendedTextMessage?.contextInfo?.mentionedJid){
+		for (const contactId of message.message?.extendedTextMessage?.contextInfo?.mentionedJid){
+			const contact = await getContact(contactId);
+			if(contact){
+				contacts.push(contact);
+			}				
+		}
+	}	
+	
+	return contacts;
+}

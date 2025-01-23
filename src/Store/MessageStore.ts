@@ -17,7 +17,7 @@ export const saveMessage = async (
 		contact: await saveContact(message.contact),
 		timestamp: message.timestamp,
 		quotedMessage: message.quotedMessage?.id,
-		taggedContacts: message.taggedContacts.toString(),
+		taggedContacts: JSON.stringify(message.taggedContacts),
 		originalMessagePayload: JSON.stringify(originalMessage),
 	});
 

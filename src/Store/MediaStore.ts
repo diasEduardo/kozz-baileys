@@ -35,6 +35,7 @@ export const getMedia = async (id: string): Promise<Media> => {
 		mimeType: mime.lookup(id.split('.')[1]) || 'octect/stream',
 		sizeInBytes: file.length,
 		stickerTags: [],
+		emojis: [],
 		transportType: 'b64',
 	};
 };

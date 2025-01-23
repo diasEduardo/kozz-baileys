@@ -1,46 +1,25 @@
 import { initSession } from './Client';
-import baileysFunctions from './Client/BaileysFunctions';
+import baileysFunctions, { inlineCommandMapFunctions } from './Client/BaileysFunctions';
 import Context from './Context';
 import { convertMP4ToWebp } from './MediaConverter';
 import { createMessagePayload } from './PayloadTransformers';
 import { getMessage, saveMessage } from './Store/MessageStore';
 import createBoundary from 'kozz-boundary-maker';
+import { createFolderOnInit } from './util/utility';
+import { getGroupChat } from './Store/ChatStore';
 
-const boundary = createBoundary({
-	url: 'ws://192.168.15.4:4521',
+
+export const boundary = createBoundary({
+	url: `${process.env.GATEWAY_URL}`,
 	chatPlatform: 'Baileys',
-	name: 'baileysTramonta',
+	name: `${process.env.BOUNDARY_NAME}`,
+	inlineCommandMap:inlineCommandMapFunctions()
 });
 
-initSession('tramont').then(waSocket => {
+createFolderOnInit();
+
+initSession('tramont').then((waSocket:any) => {
 	const baileys = baileysFunctions(waSocket);
-
-	waSocket.ev.on('messages.upsert', async upsert => {
-		for (const msg of upsert.messages) {
-			try {
-				const payload = await createMessagePayload(msg, waSocket);
-				if (Context.get('blockedList').includes(payload.from)) {
-					return;
-				}
-
-				await saveMessage(payload, msg);
-				// console.log(
-				// 	JSON.stringify(
-				// 		{
-				// 			body: payload.body,
-				// 			author: payload.contact.id,
-				// 			msg,
-				// 		},
-				// 		undefined,
-				// 		'  '
-				// 	)
-				// );
-				boundary.emitMessage(payload);
-			} catch (e) {
-				console.warn(e);
-			}
-		}
-	});
 
 	boundary.handleReplyWithText((payload, companion, body) => {
 		baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions);
@@ -54,6 +33,8 @@ initSession('tramont').then(waSocket => {
 				caption,
 				mentionedList: companion.mentions,
 				asSticker: true,
+				contact:payload.contact,
+				emojis:payload.media?.emojis
 			},
 			payload.quoteId
 		);
@@ -81,9 +62,35 @@ initSession('tramont').then(waSocket => {
 
 	boundary.onAskResource('contact_profile_pic', async ({ id }) => {
 		console.log('getting profile pic url from', id);
-		const pic = await baileys.getProfilePic(id);
-		console.log({ pic });
+		let pic;
+		if(id){
+			pic = await baileys.getProfilePic(id);
+			console.log({ pic });
+		}
 		return pic;
+	});
+
+	boundary.onAskResource('group_chat_info', async ({ id }) => {
+		console.log('getting group chart info from', id);
+		if(id.includes('@g.us')){
+			const chatInfo = await getGroupChat(id);
+			return chatInfo;
+		}
+		console.log(`${id} is not a valid group`);
+		return {};
+		
+		
+	});
+
+	boundary.onAskResource('group_admin_list', async ({ id }) => {
+		console.log('getting group admin list from', id);
+		if(id.includes('@g.us')){
+			let chatInfo = await getGroupChat(id);
+			return {'adminList':chatInfo?.participants.filter((member:any) => member.admin)};
+		}
+		console.log(`${id} is not a valid group`);
+		return {};
+		
 	});
 
 	boundary.hanldeDeleteMessage(payload => {
