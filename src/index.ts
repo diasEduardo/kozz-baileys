@@ -1,24 +1,23 @@
 import { initSession } from './Client';
-import baileysFunctions, { inlineCommandMapFunctions } from './Client/BaileysFunctions';
-import Context from './Context';
-import { convertMP4ToWebp } from './MediaConverter';
-import { createMessagePayload } from './PayloadTransformers';
-import { getMessage, saveMessage } from './Store/MessageStore';
+import baileysFunctions, {
+	inlineCommandMapFunctions,
+} from './Client/BaileysFunctions';
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 import { getGroupChat } from './Store/ChatStore';
 
+console.log(process.env.GATEWAY_URL);
 
 export const boundary = createBoundary({
 	url: `${process.env.GATEWAY_URL}`,
 	chatPlatform: 'Baileys',
 	name: `${process.env.BOUNDARY_NAME}`,
-	inlineCommandMap:inlineCommandMapFunctions()
+	inlineCommandMap: inlineCommandMapFunctions(),
 });
 
 createFolderOnInit();
 
-initSession('tramont').then((waSocket:any) => {
+initSession('tramont').then((waSocket: any) => {
 	const baileys = baileysFunctions(waSocket);
 
 	boundary.handleReplyWithText((payload, companion, body) => {
@@ -33,8 +32,8 @@ initSession('tramont').then((waSocket:any) => {
 				caption,
 				mentionedList: companion.mentions,
 				asSticker: true,
-				contact:payload.contact,
-				emojis:payload.media?.emojis
+				contact: payload.contact,
+				emojis: payload.media?.stickerTags,
 			},
 			payload.quoteId
 		);
@@ -63,7 +62,7 @@ initSession('tramont').then((waSocket:any) => {
 	boundary.onAskResource('contact_profile_pic', async ({ id }) => {
 		console.log('getting profile pic url from', id);
 		let pic;
-		if(id){
+		if (id) {
 			pic = await baileys.getProfilePic(id);
 			console.log({ pic });
 		}
@@ -72,25 +71,24 @@ initSession('tramont').then((waSocket:any) => {
 
 	boundary.onAskResource('group_chat_info', async ({ id }) => {
 		console.log('getting group chart info from', id);
-		if(id.includes('@g.us')){
+		if (id.includes('@g.us')) {
 			const chatInfo = await getGroupChat(id);
 			return chatInfo;
 		}
 		console.log(`${id} is not a valid group`);
 		return {};
-		
-		
 	});
 
 	boundary.onAskResource('group_admin_list', async ({ id }) => {
 		console.log('getting group admin list from', id);
-		if(id.includes('@g.us')){
+		if (id.includes('@g.us')) {
 			let chatInfo = await getGroupChat(id);
-			return {'adminList':chatInfo?.participants.filter((member:any) => member.admin)};
+			return {
+				adminList: chatInfo?.participants.filter((member: any) => member.admin),
+			};
 		}
 		console.log(`${id} is not a valid group`);
 		return {};
-		
 	});
 
 	boundary.hanldeDeleteMessage(payload => {
