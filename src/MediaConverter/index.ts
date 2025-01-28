@@ -83,7 +83,7 @@ export const convertMP4ToWebp = async (
 					'-s',
 					'512:512',
 					'-fs',
-					'900K',
+					'700K',
 				])
 				.on('end', async () => {
 					const out = await fs.readFile(outFilePath);
