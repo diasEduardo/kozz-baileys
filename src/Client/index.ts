@@ -19,7 +19,7 @@ import { getGroupChat, saveGroupChat } from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
 import { boundary } from '..';
 import { saveMessage } from 'src/Store/MessageStore';
-import { createMessagePayload } from 'src/PayloadTransformers';
+import { createGroupParticipantsUpdatePayload, createMessagePayload } from 'src/PayloadTransformers';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
@@ -169,4 +169,29 @@ const sessionEvents = (waSocket:any,saveCreds:any) =>{
 			);
 		}
 	});
+
+	waSocket.ev.on('group-participants.update', async (payload:any) => {
+		
+		const newPayload = 	await createGroupParticipantsUpdatePayload(payload);
+		if(payload.action == 'add'){
+			// adicionado ao grupo
+			boundary.emitUserJoinedGroup(newPayload as any);
+			boundary.emitForwardableEvent('added_group_participants',newPayload);
+		}else if(payload.action == 'remove'){
+			//removido do grupo		
+			boundary.emitUserLeftGroup(newPayload as any);
+			boundary.emitForwardableEvent('removed_group_participants',newPayload);
+		}else if(payload.action == 'promote'){
+			//torna admin
+			boundary.emitForwardableEvent('promoted_group_participants',newPayload);
+		}else if(payload.action == 'demote'){
+			//retira admin
+			boundary.emitForwardableEvent('demoted_group_participants',newPayload);
+		}				
+		
+		boundary.emitForwardableEvent('updated_group_participants',newPayload);
+
+	});
+
+	
 }

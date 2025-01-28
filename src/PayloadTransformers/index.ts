@@ -93,7 +93,28 @@ export const createMessagePayload = async (
 	const quotedMessage = quotedMessageId
 		? await getMessage(quotedMessageId)
 		: undefined;
+	//&& !quotedMessage
+	if(quotedMessageId  ){
+		const a = await waSocket.fetchMessageHistory(50,{
+			remoteJid:message.key.remoteJid!,
+			fromMe:clearContact(contextInfo?.participant||'') == clearContact(Context.get('hostData').id),
+			id:quotedMessageId
+		},0);
 
+		console.log('tem quote e não tem salva');
+
+		
+		if(contact.isHostAccount){
+			console.log(JSON.stringify(contextInfo))
+		}
+
+
+	}
+
+	if(contact.isHostAccount){
+		console.log(JSON.stringify(message))
+	}
+	
 	if (messageBody.toLowerCase() === 'teste') {
 		console.log({ id, quotedMessageId, quotedMessage });
 	}
@@ -135,4 +156,25 @@ export const createtTaggedContactPayload = async (
 	}	
 	
 	return contacts;
+}
+
+export const createGroupParticipantsUpdatePayload = async (
+	payload: any
+) =>{
+	/*{
+				'group-participants.update': {
+				  id: '120363382913527538@g.us',
+				  author: '555181953191@s.whatsapp.net',
+				  participants: [ '555181953191@s.whatsapp.net' ],
+				  action: 'remove' 
+				}
+			  }
+				*/
+
+	return {
+		from: payload.author || payload.id,
+		to: payload.id,
+		action:payload.action
+	}
+
 }
