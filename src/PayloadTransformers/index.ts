@@ -3,7 +3,7 @@ import { ContactPayload, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
-import { getMessage } from 'src/Store/MessageStore';
+import { getMessage, saveMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
 
@@ -93,28 +93,52 @@ export const createMessagePayload = async (
 	const quotedMessage = quotedMessageId
 		? await getMessage(quotedMessageId)
 		: undefined;
-	//&& !quotedMessage
-	if(quotedMessageId  ){
-		const a = await waSocket.fetchMessageHistory(50,{
-			remoteJid:message.key.remoteJid!,
-			fromMe:clearContact(contextInfo?.participant||'') == clearContact(Context.get('hostData').id),
-			id:quotedMessageId
-		},0);
 
-		console.log('tem quote e não tem salva');
+	const isViewOnce = (message.message?.audioMessage ||
+		message.message?.videoMessage ||
+		message.message?.imageMessage
+	)?.viewOnce || false;	
 
 		
-		if(contact.isHostAccount){
-			console.log(JSON.stringify(contextInfo))
+	if(quotedMessageId && !(quotedMessage?.media) && quotedMessage){
+		const quoteMessage = {
+			"key": {
+				"remoteJid": quotedMessage?.to,
+				"fromMe": true,
+				"id": quotedMessageId,
+				"participant": quotedMessage?.from
+			},
+			message:contextInfo?.quotedMessage
+		}
+		const mediaQuote = await downloadMediaFromMessage(quoteMessage, waSocket);
+		
+		if(mediaQuote){
+			quotedMessage.media = mediaQuote;
+			quotedMessage.messageType = contextInfo?.quotedMessage?.extendedTextMessage
+				? 'TEXT'
+				: contextInfo?.quotedMessage?.audioMessage
+				? 'AUDIO'
+				: contextInfo?.quotedMessage?.stickerMessage
+				? 'STICKER'
+				: contextInfo?.quotedMessage?.videoMessage
+				? 'VIDEO'
+				: contextInfo?.quotedMessage?.imageMessage
+				? 'IMAGE'
+				: 'TEXT';
+			
+			quotedMessage.isViewOnce = (contextInfo?.quotedMessage?.audioMessage ||
+				contextInfo?.quotedMessage?.videoMessage ||
+				contextInfo?.quotedMessage?.imageMessage
+			)?.viewOnce || false;	
+			quotedMessage.taggedConctactFriendlyBody = (contextInfo?.quotedMessage?.videoMessage ||
+				contextInfo?.quotedMessage?.imageMessage
+			)?.caption || '';
+			
+			await saveMessage(quotedMessage, quotedMessage.originalMessagePayload as any);
 		}
 
-
 	}
 
-	if(contact.isHostAccount){
-		console.log(JSON.stringify(message))
-	}
-	
 	if (messageBody.toLowerCase() === 'teste') {
 		console.log({ id, quotedMessageId, quotedMessage });
 	}
@@ -126,7 +150,7 @@ export const createMessagePayload = async (
 		contact: await createContactPayload(message),
 		from: contact.id,
 		fromHostAccount: contact.isHostAccount,
-		isViewOnce: false,
+		isViewOnce: isViewOnce,
 		to: message.key.remoteJid!,
 		messageType: messageType,
 		platform: 'Baileys',

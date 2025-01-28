@@ -59,3 +59,10 @@ export const getFormattedDateAndTime = (date?: number | Date) => {
 			.toString()
 			.padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 };
+
+export const delay = (miliseconds: number,description?:string) =>{
+    return new Promise( resolve => {
+        setTimeout(resolve, miliseconds);
+        
+    } );
+  }
