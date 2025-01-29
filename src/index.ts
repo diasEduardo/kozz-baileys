@@ -7,7 +7,7 @@ import { createFolderOnInit } from './util/utility';
 import { getGroupChat } from './Store/ChatStore';
 
 export const boundary = createBoundary({
-	url: process.env.GATEWAY_URL || 'ws://192.168.15.4:4521',
+	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
 	chatPlatform: 'Baileys',
 	name: process.env.BOUNDARY_NAME || 'kozz-baileys',
 	inlineCommandMap: inlineCommandMapFunctions(),
