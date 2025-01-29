@@ -6,12 +6,10 @@ import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 import { getGroupChat } from './Store/ChatStore';
 
-console.log(process.env.GATEWAY_URL);
-
 export const boundary = createBoundary({
-	url: `${process.env.GATEWAY_URL}`,
+	url: process.env.GATEWAY_URL || 'ws://192.168.15.4:4521',
 	chatPlatform: 'Baileys',
-	name: `${process.env.BOUNDARY_NAME}`,
+	name: process.env.BOUNDARY_NAME || 'kozz-baileys',
 	inlineCommandMap: inlineCommandMapFunctions(),
 });
 
