@@ -15,7 +15,7 @@ export const boundary = createBoundary({
 
 createFolderOnInit();
 
-initSession('tramont').then((waSocket: any) => {
+initSession(boundary).then((waSocket: any) => {
 	const baileys = baileysFunctions(waSocket);
 
 	boundary.handleReplyWithText((payload, companion, body) => {

@@ -19,17 +19,18 @@ import Context, { setMeFromCreds } from 'src/Context';
 import { boundary } from '..';
 import { saveMessage } from 'src/Store/MessageStore';
 import { createMessagePayload } from 'src/PayloadTransformers';
+import createBoundary from 'kozz-boundary-maker';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
 console.clear();
 console.log('Initializing DB...');
 
-export const initSession = (sessionName: string) => {
-	return startSocket();
+export const initSession = (boundary: ReturnType<typeof createBoundary>) => {
+	return startSocket(boundary);
 };
 
-const startSocket = async () => {
+const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	const logger = log.child({});
 	logger.level = 'info';
 
@@ -54,7 +55,7 @@ const startSocket = async () => {
 		browser: Browsers.ubuntu('Desktop'),
 	});
 	setMeFromCreds();
-	sessionEvents(waSocket, saveCreds);
+	sessionEvents(waSocket, saveCreds, boundary);
 
 	// waSocket.ev.on('contacts.update', payload => {
 	// 	console.log('[CONTACTS UPDATE]', { payload });
@@ -67,7 +68,11 @@ const startSocket = async () => {
 	return waSocket;
 };
 
-const sessionEvents = (waSocket: any, saveCreds: any) => {
+const sessionEvents = (
+	waSocket: any,
+	saveCreds: any,
+	boundary: ReturnType<typeof createBoundary>
+) => {
 	waSocket.ev.process(async (events: any) => {
 		// credentials updated -- save them
 		if (events['creds.update']) await saveCreds();
@@ -77,15 +82,20 @@ const sessionEvents = (waSocket: any, saveCreds: any) => {
 		if (events['connection.update']) {
 			const update = events['connection.update'];
 			console.log('CONNECTION UPDATED =>', update);
+
+			if (update.qr) {
+				boundary.emitForwardableEvent('qrcode', update.qr);
+			}
+
 			const { connection, lastDisconnect } = update;
 			connection === 'open'
 				? console.log('Connected')
 				: connection === 'close'
 				? (lastDisconnect?.error as Boom)?.output?.statusCode !==
 				  DisconnectReason.loggedOut
-					? startSocket()
+					? startSocket(boundary)
 					: (async () => {
-							startSocket();
+							startSocket(boundary);
 					  })()
 				: null;
 		}
