@@ -84,7 +84,7 @@ const sessionEvents = (
 			console.log('CONNECTION UPDATED =>', update);
 
 			if (update.qr) {
-				boundary.emitForwardableEvent('qrcode', update.qr);
+				setTimeout(() => boundary.emitForwardableEvent('qrcode', update.qr), 3000);
 			}
 
 			const { connection, lastDisconnect } = update;
