@@ -68,6 +68,9 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	return waSocket;
 };
 
+let qrString: string | null = null;
+let interval: null | NodeJS.Timeout = null;
+
 const sessionEvents = (
 	waSocket: any,
 	saveCreds: any,
@@ -83,11 +86,23 @@ const sessionEvents = (
 			const update = events['connection.update'];
 			console.log('CONNECTION UPDATED =>', update);
 
-			if (update.qr) {
-				setTimeout(() => boundary.emitForwardableEvent('qrcode', update.qr), 3000);
+			if (update.qr && !interval) {
+				interval = setInterval(
+					() => boundary.emitForwardableEvent('qrcode', update.qr),
+					500
+				);
+			}
+
+			if (interval && !update.qr) {
+				clearInterval(interval);
 			}
 
 			const { connection, lastDisconnect } = update;
+
+			if (connection === 'open') {
+				boundary.emitForwardableEvent('chatready', undefined);
+			}
+
 			connection === 'open'
 				? console.log('Connected')
 				: connection === 'close'
