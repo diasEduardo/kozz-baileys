@@ -86,9 +86,13 @@ const sessionEvents = (
 			const update = events['connection.update'];
 			console.log('CONNECTION UPDATED =>', update);
 
+			if (update.qr) {
+				qrString = update.qr;
+			}
+
 			if (update.qr && !interval) {
 				interval = setInterval(
-					() => boundary.emitForwardableEvent('qrcode', update.qr),
+					() => boundary.emitForwardableEvent('qrcode', qrString),
 					500
 				);
 			}
