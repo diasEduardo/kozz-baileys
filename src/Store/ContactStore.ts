@@ -1,5 +1,4 @@
 import { ContactPayload, Media, SendMessagePayload } from 'kozz-types';
-import { randomUUID } from 'crypto';
 import Context from 'src/Context';
 import { ContactModel } from './models';
 

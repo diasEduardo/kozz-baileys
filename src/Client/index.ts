@@ -106,7 +106,7 @@ const sessionEvents = (
 			if (connection === 'open' || update.isOnline) {
 				setTimeout(
 					() => boundary.emitForwardableEvent('chatready', undefined),
-					10000
+					5000
 				);
 			}
 
