@@ -103,8 +103,11 @@ const sessionEvents = (
 
 			const { connection, lastDisconnect } = update;
 
-			if (connection === 'open') {
-				boundary.emitForwardableEvent('chatready', undefined);
+			if (connection === 'open' || update.isOnline) {
+				setTimeout(
+					() => boundary.emitForwardableEvent('chatready', undefined),
+					10000
+				);
 			}
 
 			connection === 'open'
