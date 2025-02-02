@@ -46,14 +46,14 @@ export const getGroupChat = async (
 
 export const savePrivateChat = async ({
 	id,
-	lastUnreadTimestamp,
+	lastMessageTimestamp,
 	unreadCount,
 }: PrivateChatModel) => {
-	console.log({ id, lastUnreadTimestamp, unreadCount });
+	console.log({ id, lastMessageTimestamp, unreadCount });
 
 	await database.upsert('privateChat', {
 		id,
-		lastUnreadTimestamp,
+		lastMessageTimestamp,
 		unreadCount,
 	});
 
@@ -63,20 +63,38 @@ export const savePrivateChat = async ({
 export const getPrivateChat = (id: string) => database.getById('privateChat', id);
 
 export const updateChatUnreadCount = async (id: string, unreadCount: number) => {
-	if (!id || !unreadCount) {
+	try {
+		if (!id || !unreadCount) {
+			return;
+		}
+
+		if (id.includes('@g.us')) {
+			await database.upsert('groupChat', {
+				id,
+				unreadCount,
+			});
+		} else {
+			await database.upsert('privateChat', {
+				id,
+				unreadCount,
+			});
+		}
+	} catch (e) {
 		return;
 	}
+};
 
-	if (id.includes('@g.us')) {
-		await database.upsert('groupChat', {
-			id,
-			unreadCount,
-			name: '__no_name__',
-		});
-	} else {
-		await database.upsert('privateChat', {
-			id,
-			unreadCount,
-		});
+export const getUnreadCount = async (id: string) => {
+	try {
+		if (!id) {
+			return 0;
+		}
+		if (id.includes('@g.us')) {
+			return database.getById('groupChat', id)?.unreadCount ?? 0;
+		} else {
+			return database.getById('privateChat', id)?.unreadCount ?? 0;
+		}
+	} catch (e) {
+		return 0;
 	}
 };

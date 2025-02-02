@@ -71,9 +71,6 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	return waSocket;
 };
 
-let qrString: string | null = null;
-let interval: null | NodeJS.Timeout = null;
-
 const sessionEvents = (
 	waSocket: ReturnType<typeof makeWASocket>,
 	saveCreds: any,
@@ -87,25 +84,21 @@ const sessionEvents = (
 		console.log('CONNECTION UPDATED =>', update);
 
 		if (update.qr) {
-			qrString = update.qr;
-		}
-
-		if (update.qr && !interval) {
-			interval = setInterval(
-				() => boundary.emitForwardableEvent('qrcode', qrString),
-				500
-			);
-		}
-
-		if (interval && !update.qr) {
-			clearInterval(interval);
+			boundary.emitForwardableEvent('kozz-iwac', 'qr_code');
+			Context.upsert({
+				qr: update.qr,
+			});
 		}
 
 		const { connection, lastDisconnect } = update;
 
 		if (connection === 'open' || update.isOnline) {
-			setTimeout(() => boundary.emitForwardableEvent('chatready', undefined), 5000);
 			console.log('Connected');
+			boundary.emitForwardableEvent('kozz-iwac', 'chat_ready');
+			Context.upsert({
+				ready: true,
+				qr: null,
+			});
 		}
 
 		const loggedOut =
@@ -113,6 +106,12 @@ const sessionEvents = (
 			DisconnectReason.loggedOut;
 
 		if (connection === 'close' && !loggedOut) {
+			Context.upsert({
+				ready: false,
+				qr: null,
+			});
+
+			boundary.emitForwardableEvent('kozz-iwac', 'reconnecting');
 			startSocket(boundary);
 		}
 	});

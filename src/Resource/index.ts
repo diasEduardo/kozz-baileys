@@ -1,12 +1,13 @@
 import initBoundary from 'kozz-boundary-maker';
 import baileysFunctions from 'src/Client/BaileysFunctions';
-import { getGroupChat } from 'src/Store/ChatStore';
+import { getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
+import { getChatOrder, recalculateChatOrder } from 'src/Store/MetadataStore';
 
 export const createResourceGatheres = (
 	boundary: ReturnType<typeof initBoundary>,
 	baileys: ReturnType<typeof baileysFunctions>
 ) => {
-	const getProfilePicUrl = async ({ id }: { id: string }) => {
+	const _getProfilePicUrl = async ({ id }: { id: string }) => {
 		if (!id) {
 			return console.warn('Tried to fetch profile pic but no ID was provided!');
 		}
@@ -15,7 +16,7 @@ export const createResourceGatheres = (
 		return picUrl;
 	};
 
-	const getGroupChatInfo = async ({ id }: { id: string }) => {
+	const _getGroupChatInfo = async ({ id }: { id: string }) => {
 		if (!id) {
 			return console.warn('Tried to fetch group chat info but no ID was provided');
 		}
@@ -33,7 +34,7 @@ export const createResourceGatheres = (
 		return groupData;
 	};
 
-	const groupAdminList = async ({ id }: { id: string }) => {
+	const _groupAdminList = async ({ id }: { id: string }) => {
 		if (!id) {
 			return console.warn('Tried to fetch group chat info but no ID was provided');
 		}
@@ -53,7 +54,16 @@ export const createResourceGatheres = (
 		};
 	};
 
-	boundary.onAskResource('contact_profile_pic', getProfilePicUrl);
-	boundary.onAskResource('group_chat_info', getGroupChatInfo);
-	boundary.onAskResource('group_admin_list', groupAdminList);
+	const _getUnreadCount = async ({ id }: { id: string }) => {
+		const unreadCount = await getUnreadCount(id);
+		return unreadCount;
+	};
+
+	boundary.onAskResource('contact_profile_pic', _getProfilePicUrl);
+	boundary.onAskResource('group_chat_info', _getGroupChatInfo);
+	boundary.onAskResource('group_admin_list', _groupAdminList);
+	boundary.onAskResource('get_unread_count', _getUnreadCount);
+
+	boundary.onAskResource('get_chat_order', getChatOrder);
+	boundary.onAskResource('recalculate_chat_order', recalculateChatOrder);
 };

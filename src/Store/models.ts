@@ -57,6 +57,7 @@ export type GroupChatModel = Overwrite<
 		participants: string[];
 		lastFetched: number;
 		unreadCount: number;
+		lastMessageTimestamp: number;
 	}
 >;
 export const groupChatSchema = {
@@ -72,13 +73,14 @@ export const groupChatSchema = {
 		participants: 'string[]',
 		lastFetched: 'int',
 		unreadCount: 'int',
+		lastMessageTimestamp: 'int',
 	},
 };
 
 export type PrivateChatModel = {
 	id: string;
 	unreadCount: number;
-	lastUnreadTimestamp: number;
+	lastMessageTimestamp: number;
 };
 export const privateChatSchema = {
 	name: 'privateChat',
@@ -86,7 +88,7 @@ export const privateChatSchema = {
 	properties: {
 		id: 'string',
 		unreadCount: 'int',
-		lastUnreadtimestamp: 'int',
+		lastMessageTimestamp: 'int',
 	},
 };
 
