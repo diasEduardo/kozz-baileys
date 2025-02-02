@@ -75,6 +75,21 @@ export const groupChatSchema = {
 	},
 };
 
+export type PrivateChatModel = {
+	id: string;
+	unreadCount: number;
+	lastUnreadTimestamp: number;
+};
+export const privateChatSchema = {
+	name: 'privateChat',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		unreadCount: 'int',
+		lastUnreadtimestamp: 'int',
+	},
+};
+
 export type ContactModel = ContactPayload;
 
 export const contactSchema = {
@@ -117,4 +132,5 @@ export type EntityMap = {
 	contact: ContactModel;
 	groupChat: GroupChatModel;
 	metadata: WhatsAppMetadataModel;
+	privateChat: PrivateChatModel;
 };

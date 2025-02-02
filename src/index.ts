@@ -4,7 +4,6 @@ import baileysFunctions, {
 } from './Client/BaileysFunctions';
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
-import { getGroupChat } from './Store/ChatStore';
 import { createResourceGatheres } from './Resource';
 
 export const boundary = createBoundary({
@@ -16,7 +15,7 @@ export const boundary = createBoundary({
 
 createFolderOnInit();
 
-initSession(boundary).then((waSocket: any) => {
+initSession(boundary).then(waSocket => {
 	const baileys = baileysFunctions(waSocket);
 
 	boundary.handleReplyWithText((payload, companion, body) => {

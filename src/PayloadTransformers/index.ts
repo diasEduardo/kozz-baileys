@@ -1,8 +1,9 @@
 import { WAMessage, WASocket, proto } from '@whiskeysockets/baileys';
-import { ContactPayload, MessageReceived } from 'kozz-types';
+import { ContactPayload, GroupChat, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
 import { getMessage } from 'src/Store/MessageStore';
+import { GroupChatModel } from 'src/Store/models';
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
 
@@ -60,7 +61,7 @@ export const createContactFromSync = async (contact: {
 		id: contact.id,
 		isHostAccount: hostData.id === contact.id,
 		isBlocked,
-		publicName: contact.name,
+		publicName: contact.name || 'no_name',
 		isGroup: contact.id.includes('@g.us'),
 		privateName: '',
 	};
@@ -155,4 +156,25 @@ export const createtTaggedContactPayload = async (
 	}
 
 	return contacts;
+};
+
+export const createGroupChatPayload = (ogChatPayload: any): GroupChat => {
+	return {
+		id: ogChatPayload.id,
+		community: ogChatPayload.linkedParent ?? null,
+		description: ogChatPayload.desc ?? '',
+		memberCount: ogChatPayload.size!,
+		name: ogChatPayload.subject,
+		owner:
+			ogChatPayload.owner ??
+			ogChatPayload.participants.find(
+				(participant: any) => participant.admin === 'superadmin'
+			)?.id ??
+			'NOT_FOUND',
+		participants: ogChatPayload.participants.map((participant: any) => ({
+			admin: !!participant.admin,
+			id: participant.id,
+		})),
+		unreadCount: ogChatPayload.unreadCount ?? 0,
+	};
 };

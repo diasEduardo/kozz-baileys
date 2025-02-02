@@ -1,6 +1,6 @@
 import { GroupChat } from 'kozz-types';
 import Context from 'src/Context';
-import { GroupChatModel } from './models';
+import { GroupChatModel, PrivateChatModel } from './models';
 
 const database = Context.get('database');
 
@@ -42,4 +42,41 @@ export const getGroupChat = async (
 			};
 		}),
 	};
+};
+
+export const savePrivateChat = async ({
+	id,
+	lastUnreadTimestamp,
+	unreadCount,
+}: PrivateChatModel) => {
+	console.log({ id, lastUnreadTimestamp, unreadCount });
+
+	await database.upsert('privateChat', {
+		id,
+		lastUnreadTimestamp,
+		unreadCount,
+	});
+
+	return id;
+};
+
+export const getPrivateChat = (id: string) => database.getById('privateChat', id);
+
+export const updateChatUnreadCount = async (id: string, unreadCount: number) => {
+	if (!id || !unreadCount) {
+		return;
+	}
+
+	if (id.includes('@g.us')) {
+		await database.upsert('groupChat', {
+			id,
+			unreadCount,
+			name: '__no_name__',
+		});
+	} else {
+		await database.upsert('privateChat', {
+			id,
+			unreadCount,
+		});
+	}
 };
