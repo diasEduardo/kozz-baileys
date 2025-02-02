@@ -5,11 +5,18 @@ import {
 	groupChatSchema,
 	mediaSchema,
 	messageSchema,
+	whatsAppMetadataSchema,
 } from './models';
 
 export const initDatabase = () => {
 	const config = {
-		schema: [contactSchema, mediaSchema, messageSchema, groupChatSchema],
+		schema: [
+			contactSchema,
+			mediaSchema,
+			messageSchema,
+			groupChatSchema,
+			whatsAppMetadataSchema,
+		],
 		schemaVersion: 0,
 	};
 

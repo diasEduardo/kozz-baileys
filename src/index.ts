@@ -5,6 +5,7 @@ import baileysFunctions, {
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 import { getGroupChat } from './Store/ChatStore';
+import { createResourceGatheres } from './Resource';
 
 export const boundary = createBoundary({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
@@ -57,39 +58,9 @@ initSession(boundary).then((waSocket: any) => {
 		baileys.reactMessage(payload.messageId, payload.emote);
 	});
 
-	boundary.onAskResource('contact_profile_pic', async ({ id }) => {
-		console.log('getting profile pic url from', id);
-		let pic;
-		if (id) {
-			pic = await baileys.getProfilePic(id);
-			console.log({ pic });
-		}
-		return pic;
-	});
-
-	boundary.onAskResource('group_chat_info', async ({ id }) => {
-		console.log('getting group chart info from', id);
-		if (id.includes('@g.us')) {
-			const chatInfo = await getGroupChat(id);
-			return chatInfo;
-		}
-		console.log(`${id} is not a valid group`);
-		return {};
-	});
-
-	boundary.onAskResource('group_admin_list', async ({ id }) => {
-		console.log('getting group admin list from', id);
-		if (id.includes('@g.us')) {
-			let chatInfo = await getGroupChat(id);
-			return {
-				adminList: chatInfo?.participants.filter((member: any) => member.admin),
-			};
-		}
-		console.log(`${id} is not a valid group`);
-		return {};
-	});
-
 	boundary.hanldeDeleteMessage(payload => {
 		baileys.deleteMessage(payload.messageId);
 	});
+
+	createResourceGatheres(boundary, baileys);
 });

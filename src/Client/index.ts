@@ -51,6 +51,7 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 		},
 		msgRetryCounterCache,
 		generateHighQualityLinkPreview: true,
+		syncFullHistory: true,
 		logger,
 		browser: Browsers.ubuntu('Desktop'),
 	});
@@ -79,9 +80,6 @@ const sessionEvents = (
 	waSocket.ev.process(async (events: any) => {
 		// credentials updated -- save them
 		if (events['creds.update']) await saveCreds();
-		if (events['messaging-history.set']?.progress) {
-			console.log(`CHAT SYNC ${events['messaging-history.set']?.progress}%`);
-		}
 		if (events['connection.update']) {
 			const update = events['connection.update'];
 			console.log('CONNECTION UPDATED =>', update);
@@ -123,6 +121,19 @@ const sessionEvents = (
 		}
 	});
 
+	waSocket.ev.on('messaging-history.set', (payload: any) => {
+		payload.messages.forEach(async (msg: any) => {
+			const payload = await createMessagePayload(msg, waSocket);
+			await saveMessage(payload, msg);
+		});
+
+		console.log("Chat: ", payload.chats[0]);
+		console.log("Message", payload.messages[0]);
+		console.log("Contact", payload.contacts[0]);
+
+		console.log(Object.keys(payload));
+	});
+
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
 		for (const msg of upsert.messages) {
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
@@ -139,17 +150,6 @@ const sessionEvents = (
 				}
 
 				await saveMessage(payload, msg);
-				// console.log(
-				// 	JSON.stringify(
-				// 		{
-				// 			body: payload.body,
-				// 			author: payload.contact.id,
-				// 			msg,
-				// 		},
-				// 		undefined,
-				// 		'  '
-				// 	)
-				// );
 				boundary.emitMessage(payload);
 			} catch (e) {
 				console.warn(e);

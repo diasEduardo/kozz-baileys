@@ -1,6 +1,20 @@
 import { ContactPayload, GroupChat, Media, MessageReceived } from 'kozz-types';
 import { Overwrite } from 'src/util/utilityTypes';
 
+export type WhatsAppMetadataModel = {
+	id: string;
+	chatOrder: string[];
+};
+
+export const whatsAppMetadataSchema = {
+	name: 'metadata',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		chatOrder: 'string[]',
+	},
+};
+
 export type MessageModel = Overwrite<
 	MessageReceived,
 	{
@@ -100,4 +114,5 @@ export type EntityMap = {
 	message: MessageModel;
 	contact: ContactModel;
 	groupChat: GroupChatModel;
+	metadata: WhatsAppMetadataModel;
 };
