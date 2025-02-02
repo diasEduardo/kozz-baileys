@@ -56,6 +56,7 @@ export type GroupChatModel = Overwrite<
 	{
 		participants: string[];
 		lastFetched: number;
+		unreadCount: number;
 	}
 >;
 export const groupChatSchema = {
@@ -70,6 +71,7 @@ export const groupChatSchema = {
 		community: 'string?',
 		participants: 'string[]',
 		lastFetched: 'int',
+		unreadCount: 'int',
 	},
 };
 
