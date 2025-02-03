@@ -3,7 +3,7 @@ import { ContactPayload, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
-import { getMessage, saveMessage } from 'src/Store/MessageStore';
+import { getMessage, saveEditedMessage, saveMessage } from 'src/Store/MessageStore';
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
 
@@ -51,7 +51,57 @@ export const createContactPayload = async (
 export const createMessagePayload = async (
 	message: WAMessage,
 	waSocket: WASocket
-): Promise<MessageReceived> => {
+): Promise<MessageReceived & { originalMessagePayload?: string, originalEditMessageList?: string[] }> => {
+	if(message.message?.protocolMessage?.type == proto.Message.ProtocolMessage.Type.MESSAGE_EDIT ){
+		const editedId = message.message?.protocolMessage?.key?.id!;
+		let editedMsg = await getMessage(editedId);
+		
+		if (editedMsg) {					
+			const editedMessageBody =
+				message.message?.protocolMessage?.editedMessage?.conversation ||
+				message.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text ||
+				message.message?.protocolMessage?.editedMessage?.imageMessage?.caption ||
+				message.message?.protocolMessage?.editedMessage?.videoMessage?.caption ||
+				'';
+			editedMsg.body = editedMessageBody;
+
+			editedMsg.santizedBody = editedMessageBody
+			.toLowerCase()
+			.normalize('NFKD')
+			.replace(/[\u0300-\u036f]/g, '');
+
+			const editedTaggedContact = await createtTaggedContactPayload(message);
+			editedMsg.taggedContacts = editedTaggedContact;
+			
+			let editedTaggedConctactFriendlyBody = editedMessageBody;
+			if (editedTaggedContact.length) {
+				editedTaggedConctactFriendlyBody = replaceTaggedName(editedMessageBody,editedTaggedContact);
+			}
+			editedMsg.taggedConctactFriendlyBody = editedTaggedConctactFriendlyBody;
+
+			let originalEditList:string[] = [];
+			
+			if (editedMsg.originalEditMessageList) {
+				originalEditList = [ ...editedMsg.originalEditMessageList];
+			}
+			
+			originalEditList.push(JSON.stringify(message))
+			
+			editedMsg.originalEditMessageList = originalEditList;
+			
+			await saveEditedMessage(editedId, editedMsg, originalEditList);
+
+			if((process.env.RESEND_ON_EDIT || 'false') == 'true'){
+				return editedMsg;
+			}
+		}
+
+		
+		
+	
+	}
+
+
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
 	const taggedContact = await createtTaggedContactPayload(message);
@@ -59,8 +109,8 @@ export const createMessagePayload = async (
 	const messageBody =
 		message.message?.conversation ||
 		message.message?.extendedTextMessage?.text ||
-		message?.message?.imageMessage?.caption ||
-		message?.message?.videoMessage?.caption ||
+		message.message?.imageMessage?.caption ||
+		message.message?.videoMessage?.caption ||
 		'';
 
 	let taggedConctactFriendlyBody = messageBody;
@@ -170,8 +220,12 @@ export const createtTaggedContactPayload = async (
 	message: WAMessage
 ): Promise<ContactPayload[]> => {
 	let contacts:ContactPayload[] = [];
-	if(message.message?.extendedTextMessage?.contextInfo?.mentionedJid){
-		for (const contactId of message.message?.extendedTextMessage?.contextInfo?.mentionedJid){
+	const mentionedList = (message.message?.extendedTextMessage ||
+		message.message?.protocolMessage?.editedMessage?.extendedTextMessage
+	)?.contextInfo?.mentionedJid;
+
+	if(mentionedList){
+		for (const contactId of mentionedList){
 			const contact = await getContact(contactId);
 			if(contact){
 				contacts.push(contact);

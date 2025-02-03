@@ -24,12 +24,33 @@ export const saveMessage = async (
 	return message.id;
 };
 
+export const saveEditedMessage = async (
+	id: string,
+	message: any, 
+	originalEditMessage: string[])
+: Promise<string> => {
+
+	delete message.media; 
+	delete message.contact;
+	delete message.quotedMessage; 
+
+	database.upsert('message',
+		{
+			id,
+			...message,
+			taggedContacts: JSON.stringify(message.taggedContacts),
+			originalEditMessageList:originalEditMessage,
+		});
+
+	return message.id;
+};
+
 export const getMessage = async (
 	id: string
-): Promise<(MessageReceived & { originalMessagePayload: string }) | null> => {
+): Promise<(MessageReceived & { originalMessagePayload: string, originalEditMessageList?: string[] }) | null> => {
 	const message: MessageModel | null =
 		((await database.getById('message', id)) as MessageModel) ?? null;
-
+	
 	if (!message) {
 		return null;
 	}

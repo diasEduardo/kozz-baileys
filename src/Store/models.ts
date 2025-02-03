@@ -9,6 +9,7 @@ export type MessageModel = Overwrite<
 		quotedMessage: string;
 		media: string;
 		originalMessagePayload: string;
+		originalEditMessageList?:string[];
 	}
 >;
 

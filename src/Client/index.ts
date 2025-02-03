@@ -120,10 +120,14 @@ const sessionEvents = (
 					  })()
 				: null;
 		}
+
+		//console.log(JSON.stringify(events));
 	});
 
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
+		
 		for (const msg of upsert.messages) {
+			//console.log(JSON.stringify(msg))
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message)
 			console.log(`processando mensagem ${msg.key.id}`);
@@ -136,19 +140,22 @@ const sessionEvents = (
 				if (Context.get('blockedList').includes(payload.from)) {
 					return;
 				}
-
-				await saveMessage(payload, msg);
-				// console.log(
-				// 	JSON.stringify(
-				// 		{
-				// 			body: payload.body,
-				// 			author: payload.contact.id,
-				// 			msg,
-				// 		},
-				// 		undefined,
-				// 		'  '
-				// 	)
-				// );
+				
+				if(!payload.originalEditMessageList?.length || payload.originalEditMessageList?.length == 0){
+					await saveMessage(payload, msg);
+					// console.log(
+					// 	JSON.stringify(
+					// 		{
+					// 			body: payload.body,
+					// 			author: payload.contact.id,
+					// 			msg,
+					// 		},
+					// 		undefined,
+					// 		'  '
+					// 	)
+					// );
+				}
+				
 				boundary.emitMessage(payload);
 			} catch (e) {
 				console.warn(e);
