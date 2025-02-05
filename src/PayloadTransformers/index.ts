@@ -126,6 +126,9 @@ export const createMessagePayload = async (
 		fromHostAccount: contact.isHostAccount,
 		isViewOnce: false,
 		to: message.key.remoteJid!,
+		chatId: message.key.remoteJid!.includes('@g.us')
+			? message.key.remoteJid!
+			: contact.id,
 		messageType: messageType,
 		platform: 'Baileys',
 		quotedMessage: quotedMessage || undefined,
@@ -158,7 +161,11 @@ export const createtTaggedContactPayload = async (
 	return contacts;
 };
 
-export const createGroupChatPayload = (ogChatPayload: any): GroupChat => {
+export const createGroupChatPayload = (
+	ogChatPayload: any
+): GroupChat & {
+	lastMessageTimestamp: number;
+} => {
 	return {
 		id: ogChatPayload.id,
 		community: ogChatPayload.linkedParent ?? null,
@@ -176,5 +183,6 @@ export const createGroupChatPayload = (ogChatPayload: any): GroupChat => {
 			id: participant.id,
 		})),
 		unreadCount: ogChatPayload.unreadCount ?? 0,
+		lastMessageTimestamp: ogChatPayload.lastMessageTimestamp ?? 0,
 	};
 };

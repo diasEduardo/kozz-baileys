@@ -1,17 +1,21 @@
 import { ContactPayload, GroupChat, Media, MessageReceived } from 'kozz-types';
 import { Overwrite } from 'src/util/utilityTypes';
 
-export type WhatsAppMetadataModel = {
+export type ChatMetadata = {
 	id: string;
-	chatOrder: string[];
+	lastMessageTimestamp: number;
+	unreadCount: number;
+	lastMessagePreview: string;
 };
 
-export const whatsAppMetadataSchema = {
-	name: 'metadata',
+export const chatMetadataModel = {
+	name: 'chatMetadata',
 	primaryKey: 'id',
 	properties: {
 		id: 'string',
-		chatOrder: 'string[]',
+		lastMessageTimestamp: 'int?',
+		unreadCount: 'int?',
+		lastMessagePreview: 'string?',
 	},
 };
 
@@ -72,23 +76,17 @@ export const groupChatSchema = {
 		community: 'string?',
 		participants: 'string[]',
 		lastFetched: 'int',
-		unreadCount: 'int',
-		lastMessageTimestamp: 'int',
 	},
 };
 
 export type PrivateChatModel = {
 	id: string;
-	unreadCount: number;
-	lastMessageTimestamp: number;
 };
 export const privateChatSchema = {
 	name: 'privateChat',
 	primaryKey: 'id',
 	properties: {
 		id: 'string',
-		unreadCount: 'int',
-		lastMessageTimestamp: 'int',
 	},
 };
 
@@ -133,6 +131,6 @@ export type EntityMap = {
 	message: MessageModel;
 	contact: ContactModel;
 	groupChat: GroupChatModel;
-	metadata: WhatsAppMetadataModel;
+	chatMetadata: ChatMetadata;
 	privateChat: PrivateChatModel;
 };

@@ -21,21 +21,7 @@ export const saveMessage = async (
 		originalMessagePayload: JSON.stringify(originalMessage),
 	});
 
-	const chatId = message.from;
-
-	const oldChatOrder = database.getById('metadata', 'default')?.chatOrder ?? [];
-
-	database.upsert('metadata', {
-		id: 'default',
-		chatOrder: [chatId, ...oldChatOrder.filter(chat => chat !== chatId)],
-	});
-
 	return message.id;
-};
-
-export const getMessageOrder = () => {
-	const messageOrder = database.getById('metadata', 'default')?.chatOrder;
-	return messageOrder || [];
 };
 
 export const getMessage = async (

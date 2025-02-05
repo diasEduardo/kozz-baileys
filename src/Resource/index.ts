@@ -1,7 +1,8 @@
 import initBoundary from 'kozz-boundary-maker';
 import baileysFunctions from 'src/Client/BaileysFunctions';
-import { getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
-import { getChatOrder, recalculateChatOrder } from 'src/Store/MetadataStore';
+import Context from 'src/Context';
+import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
+import { getChatOrder } from 'src/Store/MetadataStore';
 
 export const createResourceGatheres = (
 	boundary: ReturnType<typeof initBoundary>,
@@ -59,11 +60,25 @@ export const createResourceGatheres = (
 		return unreadCount;
 	};
 
+	const _getChatDetails = async ({ id }: { id: string }) => {
+		const chatDetails = getChatDetails(id);
+		return chatDetails;
+	};
+
+	const fetchChatStatus = () => {
+		return {
+			qr: Context.get('qr'),
+			ready: Context.get('ready'),
+		};
+	};
+
 	boundary.onAskResource('contact_profile_pic', _getProfilePicUrl);
 	boundary.onAskResource('group_chat_info', _getGroupChatInfo);
 	boundary.onAskResource('group_admin_list', _groupAdminList);
-	boundary.onAskResource('get_unread_count', _getUnreadCount);
+	boundary.onAskResource('unread_count', _getUnreadCount);
+	boundary.onAskResource('chat_details', _getChatDetails);
 
-	boundary.onAskResource('get_chat_order', getChatOrder);
-	boundary.onAskResource('recalculate_chat_order', recalculateChatOrder);
+	boundary.onAskResource('chat_order', getChatOrder);
+
+	boundary.onAskResource('chat_status', fetchChatStatus);
 };
