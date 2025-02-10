@@ -32,6 +32,7 @@ import createBoundary from 'kozz-boundary-maker';
 import { saveContact } from 'src/Store/ContactStore';
 import { updateChatMetadata } from 'src/Store/MetadataStore';
 import { getMessagePreview } from 'src/util/utility';
+import { groupMemo } from 'src/util/groupMemo';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
@@ -69,6 +70,16 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	sessionEvents(waSocket, saveCreds, boundary);
 
 	return waSocket;
+};
+
+export const getGroupData = async (
+	id: string,
+	waSocket: ReturnType<typeof makeWASocket>
+) => {
+	const resp = await groupMemo
+		.getData(id, () => waSocket.groupMetadata(id))
+		.catch(err => undefined);
+	return resp?.data;
 };
 
 const sessionEvents = (
@@ -132,9 +143,7 @@ const sessionEvents = (
 				await saveContact(payload);
 
 				if (payload.isGroup) {
-					const groupData = await waSocket
-						.groupMetadata(payload.id)
-						.catch(err => undefined);
+					const groupData = getGroupData(payload.id, waSocket);
 					if (!groupData) {
 						return;
 					}

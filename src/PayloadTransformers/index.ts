@@ -80,6 +80,7 @@ export const createMessagePayload = async (
 		message.message?.extendedTextMessage?.text ||
 		message?.message?.imageMessage?.caption ||
 		message?.message?.videoMessage?.caption ||
+		message?.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
 		'';
 
 	let taggedConctactFriendlyBody = messageBody;
