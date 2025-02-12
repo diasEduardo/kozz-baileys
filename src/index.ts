@@ -53,6 +53,15 @@ initSession(boundary).then(waSocket => {
 		baileys.sendText(payload.chatId, body, undefined, companion.mentions);
 	});
 
+	boundary.handleSendMessageWithMedia((payload, companion, body) => {
+		baileys.sendMedia(
+			payload.chatId,
+			payload.media!,
+			{ caption: body, mentionedList: companion.mentions },
+			payload.quoteId
+		);
+	});
+
 	boundary.handleReactMessage(async payload => {
 		baileys.reactMessage(payload.messageId, payload.emote);
 	});
