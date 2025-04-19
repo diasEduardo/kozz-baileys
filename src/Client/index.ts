@@ -14,11 +14,25 @@ import makeWASocket, {
 import NodeCache from 'node-cache';
 import log from '@whiskeysockets/baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
-import { getGroupChat, saveGroupChat } from 'src/Store/ChatStore';
+import {
+	getGroupChat,
+	saveGroupChat,
+	savePrivateChat,
+	updateChatUnreadCount,
+} from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
 import { saveMessage } from 'src/Store/MessageStore';
-import { createGroupParticipantsUpdatePayload, createMessagePayload } from 'src/PayloadTransformers';
+import {
+	createContactFromSync,
+	createGroupChatPayload,
+	createMessagePayload,
+	createGroupParticipantsUpdatePayload
+} from 'src/PayloadTransformers';
 import createBoundary from 'kozz-boundary-maker';
+import { saveContact } from 'src/Store/ContactStore';
+import { updateChatMetadata } from 'src/Store/MetadataStore';
+import { getMessagePreview } from 'src/util/utility';
+import { groupMemo } from 'src/util/groupMemo';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
@@ -31,10 +45,9 @@ export const initSession = (boundary: ReturnType<typeof createBoundary>) => {
 
 const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	const logger = log.child({});
-	logger.level = 'info';
+	logger.level = 'error';
 
 	console.log('Creating auth...');
-	const msgRetryCounterCache = new NodeCache();
 	const { state, saveCreds } = await useMultiFileAuthState('./creds');
 	console.log('Done');
 	const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -48,77 +61,101 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 			/** caching makes the store faster to send/recv messages */
 			keys: makeCacheableSignalKeyStore(state.keys, logger),
 		},
-		msgRetryCounterCache,
 		generateHighQualityLinkPreview: true,
+		syncFullHistory: true,
 		logger,
 		browser: Browsers.ubuntu('Desktop'),
 	});
 	setMeFromCreds();
 	sessionEvents(waSocket, saveCreds, boundary);
 
-	// waSocket.ev.on('contacts.update', payload => {
-	// 	console.log('[CONTACTS UPDATE]', { payload });
-	// });
-
-	// waSocket.ev.on('contacts.upsert', payload => {
-	// 	console.log('[CONTACTS, UPSERT]', { payload });
-	// });
-
 	return waSocket;
 };
 
-let qrString: string | null = null;
-let interval: null | NodeJS.Timeout = null;
+export const getGroupData = async (
+	id: string,
+	waSocket: ReturnType<typeof makeWASocket>
+) => {
+	const resp = await groupMemo
+		.getData(id, () => waSocket.groupMetadata(id))
+		.catch((err:any) => undefined);
+	return resp?.data;
+};
 
 const sessionEvents = (
-	waSocket: any,
+	waSocket: ReturnType<typeof makeWASocket>,
 	saveCreds: any,
 	boundary: ReturnType<typeof createBoundary>
 ) => {
-	waSocket.ev.process(async (events: any) => {
-		// credentials updated -- save them
-		if (events['creds.update']) await saveCreds();
-		if (events['messaging-history.set']?.progress) {
-			console.log(`CHAT SYNC ${events['messaging-history.set']?.progress}%`);
-		}
-		if (events['connection.update']) {
-			const update = events['connection.update'];
+	waSocket.ev.on('creds.update', () => {
+		saveCreds();
+	});
+
+	waSocket.ev.on('connection.update', (update: any) => {
+		try {
 			console.log('CONNECTION UPDATED =>', update);
 
 			if (update.qr) {
-				qrString = update.qr;
-			}
-
-			if (update.qr && !interval) {
-				interval = setInterval(
-					() => boundary.emitForwardableEvent('qrcode', qrString),
-					500
-				);
-			}
-
-			if (interval && !update.qr) {
-				clearInterval(interval);
+				boundary.emitForwardableEvent('kozz-iwac', 'qr_code');
+				Context.upsert({
+					qr: update.qr,
+				});
 			}
 
 			const { connection, lastDisconnect } = update;
 
 			if (connection === 'open' || update.isOnline) {
-				setTimeout(
-					() => boundary.emitForwardableEvent('chatready', undefined),
-					5000
-				);
+				console.log('Connected');
+				boundary.emitForwardableEvent('kozz-iwac', 'chat_ready');
+				Context.upsert({
+					ready: true,
+					qr: null,
+				});
 			}
 
-			connection === 'open'
-				? console.log('Connected')
-				: connection === 'close'
-				? (lastDisconnect?.error as Boom)?.output?.statusCode !==
-				  DisconnectReason.loggedOut
-					? startSocket(boundary)
-					: (async () => {
-							startSocket(boundary);
-					  })()
-				: null;
+			const loggedOut =
+				(lastDisconnect?.error as Boom)?.output?.statusCode ===
+				DisconnectReason.loggedOut;
+
+			if (connection === 'close' && !loggedOut) {
+				Context.upsert({
+					ready: false,
+					qr: null,
+				});
+
+				boundary.emitForwardableEvent('kozz-iwac', 'reconnecting');
+				startSocket(boundary);
+			}
+		} catch (e) {
+			console.warn(e);
+		}
+	});
+
+	waSocket.ev.on('messaging-history.set', (payload: any) => {
+		try {
+			payload.messages.forEach(async (msg: any) => {
+				const payload = await createMessagePayload(msg, waSocket);
+				await saveMessage(payload, msg);
+			});
+
+			payload.contacts.forEach(async (contact: any) => {
+				const payload = await createContactFromSync(contact);
+				await saveContact(payload);
+
+				if (payload.isGroup) {
+					const groupData = getGroupData(payload.id, waSocket);
+					if (!groupData) {
+						return;
+					}
+					await saveGroupChat(createGroupChatPayload(groupData));
+				}
+			});
+
+			payload.chats.forEach(async (chat: any) => {
+				updateChatUnreadCount(chat.id, chat.unreadCount);
+			});
+		} catch (e) {
+			console.warn(e);
 		}
 
 		//console.log(JSON.stringify(events));
@@ -140,23 +177,17 @@ const sessionEvents = (
 				if (Context.get('blockedList').includes(payload.from)) {
 					return;
 				}
-				
-				if(!payload.originalEditMessageList?.length || payload.originalEditMessageList?.length == 0){
-					await saveMessage(payload, msg);
-					// console.log(
-					// 	JSON.stringify(
-					// 		{
-					// 			body: payload.body,
-					// 			author: payload.contact.id,
-					// 			msg,
-					// 		},
-					// 		undefined,
-					// 		'  '
-					// 	)
-					// );
-				}
-				
+
+				await saveMessage(payload, msg);
 				boundary.emitMessage(payload);
+
+				updateChatMetadata({
+					id: payload.chatId,
+					lastMessagePreview: getMessagePreview(payload),
+					lastMessageTimestamp: new Date().getTime(),
+				});
+
+				boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
 			} catch (e) {
 				console.warn(e);
 			}
@@ -164,33 +195,20 @@ const sessionEvents = (
 	});
 
 	waSocket.ev.on('chats.update', async (payload: any) => {
-		if (payload[0].id?.includes('@g.us')) {
-			const groupChatInfo = await getGroupChat(payload[0].id);
-			const oneHour = 60 * 60 * 1000;
+		try {
+			console.log('CHAT UPDATED!!! => \n', JSON.stringify(payload, undefined, '  '));
 
-			if (groupChatInfo?.lastFetched! <= new Date().getTime() + oneHour) {
-				return;
-			}
-
-			waSocket.groupMetadata(payload[0].id).then((resp: any) =>
-				saveGroupChat({
-					id: resp.id,
-					community: resp.linkedParent ?? null,
-					description: resp.desc ?? '',
-					memberCount: resp.size!,
-					name: resp.subject,
-					owner:
-						resp.owner ??
-						resp.participants.find(
-							(participant: any) => participant.admin === 'superadmin'
-						)?.id ??
-						'NOT_FOUND',
-					participants: resp.participants.map((participant: any) => ({
-						admin: !!participant.admin,
-						id: participant.id,
-					})),
-				})
-			);
+			// [TODO]: create types for all of this
+			payload.forEach((chat: any) => {
+				const id = chat.id;
+				const unreadCount = chat.unreadCount;
+				updateChatMetadata({
+					id,
+					unreadCount,
+				});
+			});
+		} catch (e) {
+			console.warn(e);
 		}
 	});
 

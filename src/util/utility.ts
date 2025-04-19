@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { ContactPayload } from 'kozz-types';
+import { ContactPayload, MessageReceived } from 'kozz-types';
 
 export const createFolderOnInit = () => {
 	tryCreateFolder(`./medias`);
@@ -75,4 +75,33 @@ export const getFormattedDateAndTime = (date?: number | Date) => {
 		.getHours()
 		.toString()
 		.padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+};
+
+export const removeUndefinedEntries = <Obj extends Record<string, any>>(
+	obj: Obj
+): Obj => {
+	const objCopy = structuredClone(obj);
+	for (const key in objCopy) {
+		if (objCopy[key] === undefined) {
+			delete objCopy[key];
+		}
+	}
+	return objCopy;
+};
+
+export const getMessagePreview = (message: MessageReceived) => {
+	const type = message.messageType;
+
+	if (type === 'TEXT') {
+		return message.body;
+	}
+
+	return toPascalCase(type);
+};
+
+export const toPascalCase = (str: string): string => {
+	return str
+		.split(/[\s_-]+/)
+		.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+		.join('');
 };

@@ -1,6 +1,24 @@
 import { ContactPayload, GroupChat, Media, MessageReceived } from 'kozz-types';
 import { Overwrite } from 'src/util/utilityTypes';
 
+export type ChatMetadata = {
+	id: string;
+	lastMessageTimestamp: number;
+	unreadCount: number;
+	lastMessagePreview: string;
+};
+
+export const chatMetadataModel = {
+	name: 'chatMetadata',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		lastMessageTimestamp: 'int?',
+		unreadCount: 'int?',
+		lastMessagePreview: 'string?',
+	},
+};
+
 export type MessageModel = Overwrite<
 	MessageReceived,
 	{
@@ -43,6 +61,8 @@ export type GroupChatModel = Overwrite<
 	{
 		participants: string[];
 		lastFetched: number;
+		unreadCount: number;
+		lastMessageTimestamp: number;
 	}
 >;
 export const groupChatSchema = {
@@ -57,6 +77,17 @@ export const groupChatSchema = {
 		community: 'string?',
 		participants: 'string[]',
 		lastFetched: 'int',
+	},
+};
+
+export type PrivateChatModel = {
+	id: string;
+};
+export const privateChatSchema = {
+	name: 'privateChat',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
 	},
 };
 
@@ -101,4 +132,6 @@ export type EntityMap = {
 	message: MessageModel;
 	contact: ContactModel;
 	groupChat: GroupChatModel;
+	chatMetadata: ChatMetadata;
+	privateChat: PrivateChatModel;
 };
