@@ -28,9 +28,10 @@
 	"dependencies": {
 		"@guigalleta/t-parser": "^2.1.1",
 		"@types/node": "^18.19.72",
-		"@whiskeysockets/baileys": "^6.7.9",
+		"@whiskeysockets/baileys": "6.7.9",
 		"axios": "^1.7.9",
 		"baileys-bottle": "^2.1.2",
+		"crypto": "^1.0.1",
 		"dotenv": "^16.4.7",
 		"file-type": "16.5.4",
 		"fluent-ffmpeg": "^2.1.3",

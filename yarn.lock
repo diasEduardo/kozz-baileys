@@ -641,7 +641,7 @@
     "@wasm-audio-decoders/common" "9.0.5"
     codec-parser "2.5.0"
 
-"@whiskeysockets/baileys@^6.7.9":
+"@whiskeysockets/baileys@6.7.9":
   version "6.7.9"
   resolved "https://registry.yarnpkg.com/@whiskeysockets/baileys/-/baileys-6.7.9.tgz#b64939602156d8b0c4206f524a4bf41f1e12b05c"
   integrity sha512-+23DOlzgRYvDYPq5qTDRCho6EqyRMaSWL2OadvhY+nE4Ew8HCNTwpDASIaGoFPqGyQgzAJUNgwOFvBsdJlORpA==
@@ -1298,6 +1298,11 @@ cryptiles@4.x.x:
   integrity sha512-gT9nyTMSUC1JnziQpPbxKGBbUg8VL7Zn2NB4E1cJYvuXdElHrwxrV9bmltZGDzet45zSDGyYceueke1TjynGzw==
   dependencies:
     boom "7.x.x"
+
+crypto@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/crypto/-/crypto-1.0.1.tgz#2af1b7cad8175d24c8a1b0778255794a21803037"
+  integrity sha512-VxBKmeNcqQdiUQUW2Tzq0t377b54N2bMtXO/qiLa+6eRRmmC4qT3D4OnTGoT/U6O9aklQ/jTwbOtRMTTY8G0Ig==
 
 css-select@^5.1.0:
   version "5.1.0"

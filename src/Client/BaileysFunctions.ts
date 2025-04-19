@@ -34,8 +34,9 @@ const getOGQuotedMessagePayload = (messageId?: string) => {
 
 const baileysFunctions = (client: WaSocket) => {
 	const checkNumber = async (id: string) => {
-		const [result] = await client.onWhatsApp(`${id}`);
-		return result.exists;
+		const result = await client.onWhatsApp(id);
+		
+		return (!result) ? false : result[0].exists;
 	};
 
 	const sendText = async (
@@ -44,16 +45,22 @@ const baileysFunctions = (client: WaSocket) => {
 		quotedMessageId?: string,
 		tagged?: string[]
 	) => {
-		return client.sendMessage(
-			receiverId,
-			{
-				text,
-				mentions: tagged,
-			},
-			{
-				quoted: getOGQuotedMessagePayload(quotedMessageId),
-			}
-		);
+		
+
+		try {
+			return client.sendMessage(
+				receiverId,
+				{
+					text,
+					mentions: tagged,
+				},
+				{
+					quoted: getOGQuotedMessagePayload(quotedMessageId),
+				}
+			);
+		} catch (e) {
+			return undefined;
+		}
 	};
 
 	const sendMedia = async (
