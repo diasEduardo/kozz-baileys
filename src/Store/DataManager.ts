@@ -5,11 +5,20 @@ import {
 	groupChatSchema,
 	mediaSchema,
 	messageSchema,
+	privateChatSchema,
+	chatMetadataModel,
 } from './models';
 
 export const initDatabase = () => {
 	const config = {
-		schema: [contactSchema, mediaSchema, messageSchema, groupChatSchema],
+		schema: [
+			contactSchema,
+			mediaSchema,
+			messageSchema,
+			groupChatSchema,
+			chatMetadataModel,
+			privateChatSchema,
+		],
 		schemaVersion: 0,
 	};
 
@@ -76,6 +85,26 @@ export const initDatabase = () => {
 		}
 	};
 
+	const getSorted = <Type extends keyof EntityMap>(
+		entityType: Type,
+		sortField: keyof EntityMap[Type],
+		sortDirection: 'asc' | 'des' = 'asc',
+		limit = 0
+	) => {
+		try {
+			const objs = instance
+				.objects(entityType)
+				.sorted(sortField.toString(), sortDirection === 'asc')
+				.toJSON() as EntityMap[Type][];
+
+			return limit === 0 ? objs : objs.slice(0, limit);
+		} catch (e) {
+			console.warn(
+				`Error while fetcing ${entityType}, sorting ${sortField.toString()} in ${sortDirection}. No database transaction was done. Error = ${e}`
+			);
+		}
+	};
+
 	const deleteValues = <Type extends keyof EntityMap>(
 		entityType: Type,
 		filterFn: (data: EntityMap[Type]) => boolean
@@ -106,5 +135,6 @@ export const initDatabase = () => {
 		getValues,
 		deleteValues,
 		getById,
+		getSorted,
 	};
 };

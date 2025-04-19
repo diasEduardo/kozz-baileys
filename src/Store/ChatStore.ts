@@ -1,6 +1,7 @@
 import { GroupChat } from 'kozz-types';
 import Context from 'src/Context';
-import { GroupChatModel } from './models';
+import { GroupChatModel, PrivateChatModel } from './models';
+import { getContact } from './ContactStore';
 
 const database = Context.get('database');
 
@@ -42,4 +43,54 @@ export const getGroupChat = async (
 			};
 		}),
 	};
+};
+
+export const savePrivateChat = async ({ id }: PrivateChatModel) => {
+	await database.upsert('privateChat', {
+		id,
+	});
+
+	return id;
+};
+
+export const getPrivateChat = (id: string) => database.getById('privateChat', id);
+
+export const updateChatUnreadCount = async (id: string, unreadCount: number) => {
+	try {
+		await database.upsert('chatMetadata', {
+			id,
+			unreadCount,
+		});
+	} catch (e) {
+		return;
+	}
+};
+
+export const getUnreadCount = async (id: string) => {
+	try {
+		return database.getById('chatMetadata', id)?.unreadCount ?? 0;
+	} catch (e) {
+		return 0;
+	}
+};
+
+export const getChatDetails = async (id: string) => {
+	try {
+		if (!id) {
+			return 0;
+		}
+		if (id.includes('@g.us')) {
+			return {
+				type: 'group',
+				data: database.getById('groupChat', id),
+			};
+		} else {
+			return {
+				type: 'private',
+				data: database.getById('contact', id),
+			};
+		}
+	} catch (e) {
+		return 0;
+	}
 };
