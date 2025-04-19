@@ -2,12 +2,8 @@ import { WAMessage, WASocket, proto } from '@whiskeysockets/baileys';
 import { ContactPayload, GroupChat, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
-<<<<<<< HEAD
 import { getMessage, saveEditedMessage, saveMessage } from 'src/Store/MessageStore';
-=======
-import { getMessage, saveMessage } from 'src/Store/MessageStore';
 import { GroupChatModel } from 'src/Store/models';
->>>>>>> 582f95f80b1d3f83e4820a142a41d046f212e6fa
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
 
@@ -132,14 +128,9 @@ export const createMessagePayload = async (
 	const messageBody =
 		message.message?.conversation ||
 		message.message?.extendedTextMessage?.text ||
-<<<<<<< HEAD
-		message.message?.imageMessage?.caption ||
-		message.message?.videoMessage?.caption ||
-=======
 		message?.message?.imageMessage?.caption ||
 		message?.message?.videoMessage?.caption ||
 		message?.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
->>>>>>> 582f95f80b1d3f83e4820a142a41d046f212e6fa
 		'';
 
 	let taggedConctactFriendlyBody = messageBody;
@@ -252,20 +243,10 @@ export const createMessagePayload = async (
 export const createtTaggedContactPayload = async (
 	message: WAMessage
 ): Promise<ContactPayload[]> => {
-<<<<<<< HEAD
-	let contacts:ContactPayload[] = [];
-	const mentionedList = (message.message?.extendedTextMessage ||
-		message.message?.protocolMessage?.editedMessage?.extendedTextMessage
-	)?.contextInfo?.mentionedJid;
-
-	if(mentionedList){
-		for (const contactId of mentionedList){
-=======
 	let contacts: ContactPayload[] = [];
 	if (message.message?.extendedTextMessage?.contextInfo?.mentionedJid) {
 		for (const contactId of message.message?.extendedTextMessage?.contextInfo
 			?.mentionedJid) {
->>>>>>> 582f95f80b1d3f83e4820a142a41d046f212e6fa
 			const contact = await getContact(contactId);
 			if (contact) {
 				contacts.push(contact);
