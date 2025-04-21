@@ -33,6 +33,7 @@ import { saveContact } from 'src/Store/ContactStore';
 import { updateChatMetadata } from 'src/Store/MetadataStore';
 import { getMessagePreview } from 'src/util/utility';
 import { groupMemo } from 'src/util/groupMemo';
+import { deleteFromMediaFolder } from 'src/Store/MediaStore';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
@@ -68,7 +69,6 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	});
 	setMeFromCreds();
 	sessionEvents(waSocket, saveCreds, boundary);
-
 	return waSocket;
 };
 

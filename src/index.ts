@@ -5,6 +5,7 @@ import baileysFunctions, {
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 import { createResourceGatheres } from './Resource';
+import { deleteFromMediaFolder } from './Store/MediaStore';
 
 export const boundary = createBoundary({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
@@ -72,3 +73,8 @@ initSession(boundary).then((waSocket: any) => {
 
 	createResourceGatheres(boundary, baileys);
 });
+
+if(process.env.MUST_DELETE_MIDIA == 'true'){
+	deleteFromMediaFolder();
+	setInterval(deleteFromMediaFolder,3600000); //1h in ms
+}

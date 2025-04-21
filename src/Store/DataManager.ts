@@ -19,7 +19,7 @@ export const initDatabase = () => {
 			chatMetadataModel,
 			privateChatSchema,
 		],
-		schemaVersion: 0,
+		schemaVersion: 1,
 	};
 
 	const instance = new Realm(config);
@@ -38,7 +38,7 @@ export const initDatabase = () => {
 			let obj = {} as EntityMap[Type];
 			instance.write(() => {
 				obj = instance
-					.create(entityType, { ...data }, Realm.UpdateMode.Modified)
+					.create(entityType, { ...data }, Realm.UpdateMode.All)
 					.toJSON() as EntityMap[Type];
 			});
 

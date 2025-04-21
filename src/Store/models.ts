@@ -113,6 +113,7 @@ export type MediaModel = Overwrite<
 		id: string;
 		timestamp: number;
 		originalFileName: string;
+		deleted: boolean;
 	}
 >;
 
@@ -124,6 +125,7 @@ export const mediaSchema = {
 		mimeType: 'string',
 		timestamp: 'int',
 		originalFileName: 'string',
+		deleted: 'bool',
 	},
 };
 
