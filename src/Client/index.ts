@@ -11,17 +11,10 @@ import makeWASocket, {
 	makeCacheableSignalKeyStore,
 	useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
-import NodeCache from 'node-cache';
 import log from '@whiskeysockets/baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
-import {
-	getGroupChat,
-	saveGroupChat,
-	savePrivateChat,
-	updateChatUnreadCount,
-} from 'src/Store/ChatStore';
+import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
-import { boundary } from '..';
 import { saveMessage } from 'src/Store/MessageStore';
 import {
 	createContactFromSync,
@@ -33,6 +26,7 @@ import { saveContact } from 'src/Store/ContactStore';
 import { updateChatMetadata } from 'src/Store/MetadataStore';
 import { getMessagePreview } from 'src/util/utility';
 import { groupMemo } from 'src/util/groupMemo';
+import qrCode from 'qrcode';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
@@ -55,7 +49,8 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 
 	const waSocket = makeWASocket({
 		version,
-		printQRInTerminal: true,
+		// This option is deprecated!
+		// printQRInTerminal: true,
 		auth: {
 			creds: state.creds,
 			/** caching makes the store faster to send/recv messages */
@@ -100,6 +95,10 @@ const sessionEvents = (
 				Context.upsert({
 					qr: update.qr,
 				});
+
+				console.log(
+					qrCode.toString(update.qr, { type: 'terminal' }).then(console.log)
+				);
 			}
 
 			const { connection, lastDisconnect } = update;

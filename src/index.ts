@@ -5,6 +5,8 @@ import baileysFunctions, {
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 import { createResourceGatheres } from './Resource';
+import { CronJob } from 'cron';
+import fs from 'fs/promises';
 
 export const boundary = createBoundary({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
@@ -15,8 +17,27 @@ export const boundary = createBoundary({
 
 createFolderOnInit();
 
+const deleteOldMedia = () => {
+	fs.readdir('./medias').then(files => {
+		files.forEach(file => {
+			fs.stat(`./medias/${file}`).then(stats => {
+				if (Date.now() - stats.birthtimeMs > 86400000) {
+					fs.unlink(`./medias/${file}`);
+				}
+			});
+		});
+	});
+};
+
 initSession(boundary).then(waSocket => {
 	const baileys = baileysFunctions(waSocket);
+
+	CronJob.from({
+		cronTime: '0 */10 * * * *',
+		onTick: deleteOldMedia,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
 
 	boundary.handleReplyWithText((payload, companion, body) => {
 		baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions);
