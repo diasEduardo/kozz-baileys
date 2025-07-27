@@ -143,7 +143,7 @@ const sessionEvents = (
 				await saveContact(payload);
 
 				if (payload.isGroup) {
-					const groupData = getGroupData(payload.id, waSocket);
+					const groupData = await getGroupData(payload.id, waSocket);
 					if (!groupData) {
 						return;
 					}
@@ -199,13 +199,32 @@ const sessionEvents = (
 			console.log('CHAT UPDATED!!! => \n', JSON.stringify(payload, undefined, '  '));
 
 			// [TODO]: create types for all of this
-			payload.forEach((chat: any) => {
+			payload.forEach(async (chat: any) => {
 				const id = chat.id;
 				const unreadCount = chat.unreadCount;
 				updateChatMetadata({
 					id,
 					unreadCount,
 				});
+
+				/**
+				  
+
+				 */
+				
+				// participants update await 
+				if (id.includes('@g.us')) {
+					
+						const groupData = await getGroupData(id, waSocket);
+						if (!groupData) {
+							return;
+						}
+						const oneHour = 3600000;// 60 * 60 * 1000;
+						if (groupData?.lastFetched! > new Date().getTime() + oneHour) {
+				 		saveGroupChat(createGroupChatPayload(groupData));
+					}
+						
+					}
 			});
 		} catch (e) {
 			console.warn(e);

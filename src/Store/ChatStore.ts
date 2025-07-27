@@ -5,6 +5,7 @@ import { getContact } from './ContactStore';
 
 const database = Context.get('database');
 
+
 export const saveGroupChat = async (groupChat: GroupChat): Promise<string> => {
 	await database.upsert('groupChat', {
 		...groupChat,

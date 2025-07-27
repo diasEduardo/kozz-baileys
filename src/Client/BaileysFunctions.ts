@@ -81,7 +81,7 @@ const baileysFunctions = (client: WaSocket) => {
 			mentions: options?.mentionedList ?? [],
 			caption: options?.caption,
 		};
-
+		
 		let mediaData =
 			media.transportType === 'b64'
 				? Buffer.from(media.data, 'base64url')
@@ -146,7 +146,7 @@ const baileysFunctions = (client: WaSocket) => {
 		if (media.mimeType.startsWith('audio')) {
 
 			try {
-				return client.sendMessage(
+				return await client.sendMessage(
 					contactId,
 					{
 						...sendMediaOptions,
@@ -176,13 +176,14 @@ const baileysFunctions = (client: WaSocket) => {
 					}
 				);
 			} catch (e) {
+				console.log(e)
 				return undefined;
 			}
 		}
 
 		if (media.mimeType.startsWith('video')) {
 			try {
-				return client.sendMessage(
+				return await client.sendMessage(
 					contactId,
 					{
 						...sendMediaOptions,
@@ -197,7 +198,7 @@ const baileysFunctions = (client: WaSocket) => {
 			}
 		}
 		try {
-			return client.sendMessage(
+			return await client.sendMessage(
 				contactId,
 				{
 					...sendMediaOptions,

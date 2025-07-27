@@ -76,5 +76,4 @@ initSession(boundary).then((waSocket: any) => {
 
 if(process.env.MUST_DELETE_MIDIA == 'true'){
 	deleteFromMediaFolder();
-	setInterval(deleteFromMediaFolder,3600000); //1h in ms
 }

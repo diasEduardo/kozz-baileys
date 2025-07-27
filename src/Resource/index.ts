@@ -49,7 +49,6 @@ export const createResourceGatheres = (
 		if (!groupData) {
 			return console.warn('Unable to fetch admin list from group ID:', id);
 		}
-
 		return {
 			adminList: groupData.participants.filter(member => member.admin),
 		};

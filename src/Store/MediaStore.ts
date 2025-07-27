@@ -72,6 +72,7 @@ export const deleteFromMediaFolder = async () => {
 				}
 					
 			}
+			setInterval(deleteFromMediaFolder,3600000); //1h in ms
 		}
 
 		

@@ -119,7 +119,7 @@ export const createMessagePayload = async (
 		
 	
 	}
-
+	
 
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
@@ -162,21 +162,25 @@ export const createMessagePayload = async (
 
 	const quotedMessage = quotedMessageId
 		? await getMessage(quotedMessageId)
-		: undefined;
+		: {} as any;
 
 	const isViewOnce = (message.message?.audioMessage ||
 		message.message?.videoMessage ||
 		message.message?.imageMessage
 	)?.viewOnce || false;	
 
+	if(message?.key?.fromMe){
 		
-	if(quotedMessageId && !(quotedMessage?.media) && quotedMessage){
+		//console.log(message.message?.extendedTextMessage)
+	}
+		
+	if(quotedMessageId && quotedMessage){
 		const quoteMessage = {
 			"key": {
-				"remoteJid": quotedMessage?.to,
-				"fromMe": true,
+				"remoteJid": message?.key?.remoteJid,
+				"fromMe": message?.key?.fromMe,
 				"id": quotedMessageId,
-				"participant": quotedMessage?.from
+				"participant": message?.key?.participant
 			},
 			message:contextInfo?.quotedMessage
 		}
@@ -199,7 +203,8 @@ export const createMessagePayload = async (
 			quotedMessage.isViewOnce = (contextInfo?.quotedMessage?.audioMessage ||
 				contextInfo?.quotedMessage?.videoMessage ||
 				contextInfo?.quotedMessage?.imageMessage
-			)?.viewOnce || false;	
+			)?.viewOnce || false;
+			
 			quotedMessage.taggedConctactFriendlyBody = (contextInfo?.quotedMessage?.videoMessage ||
 				contextInfo?.quotedMessage?.imageMessage
 			)?.caption || '';
