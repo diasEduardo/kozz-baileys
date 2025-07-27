@@ -1,4 +1,4 @@
-import { downloadMediaMessage, WAMessage } from '@whiskeysockets/baileys';
+import { downloadMediaMessage, WAMessage } from 'baileys';
 import { Media } from 'kozz-types';
 import { WaSocket } from 'src/Client';
 import logger from './logger';

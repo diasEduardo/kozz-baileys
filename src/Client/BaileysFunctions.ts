@@ -1,5 +1,5 @@
 import { WaSocket } from '.';
-import { AnyMessageContent, proto } from '@whiskeysockets/baileys';
+import { AnyMessageContent, proto } from 'baileys';
 import { ContactPayload, Media } from 'kozz-types';
 import context from '../Context';
 import { downloadBuffer } from 'src/util/downloadBuffer';

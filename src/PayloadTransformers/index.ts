@@ -1,4 +1,4 @@
-import { WAMessage, WASocket, proto } from '@whiskeysockets/baileys';
+import { WAMessage, WASocket, proto } from 'baileys';
 import { ContactPayload, GroupChat, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
@@ -175,7 +175,7 @@ export const createGroupChatPayload = (
 		name: ogChatPayload.subject,
 		owner:
 			ogChatPayload.owner ??
-			ogChatPayload.participants.find(
+			ogChatPayload.participants?.find(
 				(participant: any) => participant.admin === 'superadmin'
 			)?.id ??
 			'NOT_FOUND',

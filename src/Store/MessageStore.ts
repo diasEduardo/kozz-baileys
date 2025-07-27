@@ -3,7 +3,7 @@ import Context from 'src/Context';
 import { getMedia, saveMedia } from './MediaStore';
 import { getContact, saveContact } from './ContactStore';
 import { MessageModel } from './models';
-import { proto } from '@whiskeysockets/baileys';
+import { proto } from 'baileys';
 
 const database = Context.get('database');
 

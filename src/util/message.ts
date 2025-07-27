@@ -1,4 +1,4 @@
-import { WAMessage } from '@whiskeysockets/baileys';
+import { WAMessage } from 'baileys';
 
 export const baileysMessageTypes = [
 	'videoMessage',

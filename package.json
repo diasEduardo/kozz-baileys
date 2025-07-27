@@ -29,8 +29,9 @@
 	"dependencies": {
 		"@guigalleta/t-parser": "^2.1.1",
 		"@types/node": "^18.19.120",
-		"@whiskeysockets/baileys": "^6.7.18",
+		"@whiskeysockets/baileys": "github:WhiskeySockets/Baileys",
 		"axios": "^1.11.0",
+		"baileys": "^6.7.18",
 		"baileys-bottle": "^2.1.2",
 		"cron": "^4.3.2",
 		"dotenv": "^16.6.1",

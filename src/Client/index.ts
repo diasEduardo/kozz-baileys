@@ -10,8 +10,8 @@ import makeWASocket, {
 	fetchLatestBaileysVersion,
 	makeCacheableSignalKeyStore,
 	useMultiFileAuthState,
-} from '@whiskeysockets/baileys';
-import log from '@whiskeysockets/baileys/lib/Utils/logger';
+} from 'baileys';
+import log from 'baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
 import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
@@ -57,7 +57,7 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 			keys: makeCacheableSignalKeyStore(state.keys, logger),
 		},
 		generateHighQualityLinkPreview: true,
-		syncFullHistory: true,
+		// syncFullHistory: true,
 		logger,
 		browser: Browsers.ubuntu('Desktop'),
 	});
