@@ -130,33 +130,33 @@ const sessionEvents = (
 		}
 	});
 
-	waSocket.ev.on('messaging-history.set', (payload: any) => {
-		try {
-			payload.messages.forEach(async (msg: any) => {
-				const payload = await createMessagePayload(msg, waSocket);
-				await saveMessage(payload, msg);
-			});
+	// waSocket.ev.on('messaging-history.set', (payload: any) => {
+	// 	try {
+	// 		payload.messages.forEach(async (msg: any) => {
+	// 			const payload = await createMessagePayload(msg, waSocket);
+	// 			await saveMessage(payload, msg);
+	// 		});
 
-			payload.contacts.forEach(async (contact: any) => {
-				const payload = await createContactFromSync(contact);
-				await saveContact(payload);
+	// 		payload.contacts.forEach(async (contact: any) => {
+	// 			const payload = await createContactFromSync(contact);
+	// 			await saveContact(payload);
 
-				if (payload.isGroup) {
-					const groupData = getGroupData(payload.id, waSocket);
-					if (!groupData) {
-						return;
-					}
-					await saveGroupChat(createGroupChatPayload(groupData));
-				}
-			});
+	// 			if (payload.isGroup) {
+	// 				const groupData = getGroupData(payload.id, waSocket);
+	// 				if (!groupData) {
+	// 					return;
+	// 				}
+	// 				await saveGroupChat(createGroupChatPayload(groupData));
+	// 			}
+	// 		});
 
-			payload.chats.forEach(async (chat: any) => {
-				updateChatUnreadCount(chat.id, chat.unreadCount);
-			});
-		} catch (e) {
-			console.warn(e);
-		}
-	});
+	// 		payload.chats.forEach(async (chat: any) => {
+	// 			updateChatUnreadCount(chat.id, chat.unreadCount);
+	// 		});
+	// 	} catch (e) {
+	// 		console.warn(e);
+	// 	}
+	// });
 
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
 		for (const msg of upsert.messages) {
@@ -176,34 +176,34 @@ const sessionEvents = (
 				await saveMessage(payload, msg);
 				boundary.emitMessage(payload);
 
-				updateChatMetadata({
-					id: payload.chatId,
-					lastMessagePreview: getMessagePreview(payload),
-					lastMessageTimestamp: new Date().getTime(),
-				});
+				// updateChatMetadata({
+				// 	id: payload.chatId,
+				// 	lastMessagePreview: getMessagePreview(payload),
+				// 	lastMessageTimestamp: new Date().getTime(),
+				// });
 
-				boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
+				// boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
 			} catch (e) {
 				console.warn(e);
 			}
 		}
 	});
 
-	waSocket.ev.on('chats.update', async (payload: any) => {
-		try {
-			console.log('CHAT UPDATED!!! => \n', JSON.stringify(payload, undefined, '  '));
+	// waSocket.ev.on('chats.update', async (payload: any) => {
+	// 	try {
+	// 		console.log('CHAT UPDATED!!! => \n', JSON.stringify(payload, undefined, '  '));
 
-			// [TODO]: create types for all of this
-			payload.forEach((chat: any) => {
-				const id = chat.id;
-				const unreadCount = chat.unreadCount;
-				updateChatMetadata({
-					id,
-					unreadCount,
-				});
-			});
-		} catch (e) {
-			console.warn(e);
-		}
-	});
+	// 		// [TODO]: create types for all of this
+	// 		payload.forEach((chat: any) => {
+	// 			const id = chat.id;
+	// 			const unreadCount = chat.unreadCount;
+	// 			updateChatMetadata({
+	// 				id,
+	// 				unreadCount,
+	// 			});
+	// 		});
+	// 	} catch (e) {
+	// 		console.warn(e);
+	// 	}
+	// });
 };

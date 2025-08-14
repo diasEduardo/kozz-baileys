@@ -9,7 +9,7 @@ export const saveGroupChat = async (groupChat: GroupChat): Promise<string> => {
 	await database.upsert('groupChat', {
 		...groupChat,
 		lastFetched: new Date().getTime(),
-		participants: groupChat.participants.map(
+		participants: groupChat.participants?.map(
 			participant => `${participant.id}#${!!participant.admin}`
 		),
 	});
@@ -35,7 +35,7 @@ export const getGroupChat = async (
 
 	return {
 		...groupChat,
-		participants: groupChat.participants.map(participant => {
+		participants: groupChat.participants?.map(participant => {
 			const [id, admin] = participant.split('#');
 			return {
 				id,

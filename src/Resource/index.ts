@@ -51,7 +51,7 @@ export const createResourceGatheres = (
 		}
 
 		return {
-			adminList: groupData.participants.filter(member => member.admin),
+			adminList: groupData.participants?.filter(member => member.admin),
 		};
 	};
 

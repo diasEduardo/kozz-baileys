@@ -179,7 +179,7 @@ export const createGroupChatPayload = (
 				(participant: any) => participant.admin === 'superadmin'
 			)?.id ??
 			'NOT_FOUND',
-		participants: ogChatPayload.participants.map((participant: any) => ({
+		participants: ogChatPayload.participants?.map((participant: any) => ({
 			admin: !!participant.admin,
 			id: participant.id,
 		})),
