@@ -1,4 +1,5 @@
 import initBoundary from 'kozz-boundary-maker';
+import { updateGroupData } from 'src/Client';
 import baileysFunctions from 'src/Client/BaileysFunctions';
 import Context from 'src/Context';
 import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
@@ -45,10 +46,18 @@ export const createResourceGatheres = (
 				id
 			);
 		}
-		const groupData = await getGroupChat(id);
-		if (!groupData) {
-			return console.warn('Unable to fetch admin list from group ID:', id);
+		let groupData = await getGroupChat(id);
+		
+		const oneHour = 1;//3600000;// 60 * 60 * 1000;
+		if (!groupData || groupData?.lastFetched! < (new Date().getTime() + oneHour)) {
+			await updateGroupData(id);
+			groupData = await getGroupChat(id);
+			if (!groupData) {
+				return console.warn('Unable to fetch admin list from group ID:', id);
+			}
+			
 		}
+		
 		return {
 			adminList: groupData.participants.filter(member => member.admin),
 		};

@@ -1,5 +1,5 @@
-import { WaSocket } from '.';
-import { AnyMessageContent, proto } from '@whiskeysockets/baileys';
+import { updateGroupData, WaSocket } from '.';
+import { AnyMessageContent, proto } from 'baileys';
 import { ContactPayload, Media } from 'kozz-types';
 import context from '../Context';
 import { downloadBuffer } from 'src/util/downloadBuffer';
@@ -45,9 +45,8 @@ const baileysFunctions = (client: WaSocket) => {
 		tagged?: string[]
 	) => {
 		
-
 		try {
-			return client.sendMessage(
+			return await client.sendMessage(
 				receiverId,
 				{
 					text,
@@ -76,6 +75,8 @@ const baileysFunctions = (client: WaSocket) => {
 		},
 		quoteId?: string
 	) => {
+		//console.log({ media, options });
+
 		const sendMediaOptions: Partial<AnyMessageContent> = {
 			viewOnce: options?.viewOnce,
 			mentions: options?.mentionedList ?? [],
@@ -306,7 +307,16 @@ export const inlineCommandMapFunctions = (): InlineCommandMap => {
 	) => {
 		let mentions: string[] = [];
 
-		const chatInfo = await getGroupChat(payload.chatId);
+		let chatInfo = await getGroupChat(payload.chatId);
+		const oneHour = 3600000;// 60 * 60 * 1000;
+		if (!chatInfo || chatInfo?.lastFetched! < (new Date().getTime() + oneHour)) {
+			await updateGroupData(payload.chatId);
+			chatInfo = await getGroupChat(payload.chatId);
+			if (!chatInfo) {
+				console.warn('Unable to fetch admin list from group ID:', payload.chatId);
+			}
+			
+		}
 
 		if (chatInfo) {
 			mentions = chatInfo.participants

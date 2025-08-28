@@ -50,7 +50,7 @@ export const deleteFromMediaFolder = async () => {
 		pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
 
 		const midiasToDelete = await database.getValues('media', midia => midia.timestamp < pugeDate.getTime() && !midia.deleted);
-		console.log(midiasToDelete?.length)
+		//console.log(midiasToDelete?.length)
 		if(midiasToDelete){
 			for (const midia of midiasToDelete){
 				try {
@@ -72,15 +72,15 @@ export const deleteFromMediaFolder = async () => {
 				}
 					
 			}
-			setInterval(deleteFromMediaFolder,3600000); //1h in ms
 		}
-
-		
-		
-
-
 	}
+}
+
+export const deleteFromMediaDb = async () => {
+	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
+	const pugeDate = new Date();
+	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
+
+	database.deleteValues('media', midia => midia.timestamp < pugeDate.getTime());
 	
-
-
 }

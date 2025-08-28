@@ -111,4 +111,10 @@ export const delay = (miliseconds: number,description?:string) =>{
 	  setTimeout(resolve, miliseconds);
 		
 	} );
-  }
+}
+
+export const timestampToHour = (timestamp:number) =>{
+	const date = new Date(timestamp);
+	return `${date.getDay()}/${date.getMonth()}/${date.getFullYear()}T${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
+
+}

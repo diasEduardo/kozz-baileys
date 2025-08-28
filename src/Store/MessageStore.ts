@@ -3,7 +3,7 @@ import Context from 'src/Context';
 import { getMedia, saveMedia } from './MediaStore';
 import { getContact, saveContact } from './ContactStore';
 import { MessageModel } from './models';
-import { proto } from '@whiskeysockets/baileys';
+import { proto } from 'baileys';
 
 const database = Context.get('database');
 
@@ -73,3 +73,12 @@ export const getMessage = async (
 		media,
 	};
 };
+
+export const deleteFromMessageDb = async () => {
+	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
+	const pugeDate = new Date();
+	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
+
+	database.deleteValues('message', msg => msg.timestamp! < pugeDate.getTime()/1000);
+	
+}

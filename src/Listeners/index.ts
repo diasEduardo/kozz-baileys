@@ -1,7 +1,7 @@
 import { WaSocket } from 'src/Client';
 import context from '../Context';
 import { Boom } from '@hapi/boom';
-import { DisconnectReason } from '@whiskeysockets/baileys';
+import { DisconnectReason } from 'baileys';
 
 export const onReady = (waSocket: WaSocket, cb: () => any) => {
 	waSocket.ev.on('connection.update', conn => {

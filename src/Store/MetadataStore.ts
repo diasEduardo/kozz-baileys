@@ -25,3 +25,12 @@ export const updateChatMetadata = (
 		);
 	}
 };
+
+export const deleteFromChatMetadataDb = async () => {
+	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
+	const pugeDate = new Date();
+	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
+
+	database.deleteValues('chatMetadata', metadata => metadata.lastMessageTimestamp < pugeDate.getTime());
+	
+}

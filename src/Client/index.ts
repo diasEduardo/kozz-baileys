@@ -10,16 +10,10 @@ import makeWASocket, {
 	fetchLatestBaileysVersion,
 	makeCacheableSignalKeyStore,
 	useMultiFileAuthState,
-} from '@whiskeysockets/baileys';
-import NodeCache from 'node-cache';
-import log from '@whiskeysockets/baileys/lib/Utils/logger';
+} from 'baileys';
+import log from 'baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
-import {
-	getGroupChat,
-	saveGroupChat,
-	savePrivateChat,
-	updateChatUnreadCount,
-} from 'src/Store/ChatStore';
+import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
 import { saveMessage } from 'src/Store/MessageStore';
 import {
@@ -31,12 +25,13 @@ import {
 import createBoundary from 'kozz-boundary-maker';
 import { saveContact } from 'src/Store/ContactStore';
 import { updateChatMetadata } from 'src/Store/MetadataStore';
-import { getMessagePreview } from 'src/util/utility';
+import { getMessagePreview, timestampToHour } from 'src/util/utility';
 import { groupMemo } from 'src/util/groupMemo';
 import { deleteFromMediaFolder } from 'src/Store/MediaStore';
+import qrCode from 'qrcode';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
-
+export let waSocket:any;
 console.clear();
 console.log('Initializing DB...');
 
@@ -54,16 +49,17 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	const { version, isLatest } = await fetchLatestBaileysVersion();
 	console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
-	const waSocket = makeWASocket({
+	 waSocket = makeWASocket({
 		version,
-		printQRInTerminal: true,
+		// This option is deprecated!
+		// printQRInTerminal: true,
 		auth: {
 			creds: state.creds,
 			/** caching makes the store faster to send/recv messages */
 			keys: makeCacheableSignalKeyStore(state.keys, logger),
 		},
 		generateHighQualityLinkPreview: true,
-		syncFullHistory: true,
+		// syncFullHistory: true,
 		logger,
 		browser: Browsers.ubuntu('Desktop'),
 	});
@@ -93,13 +89,17 @@ const sessionEvents = (
 
 	waSocket.ev.on('connection.update', (update: any) => {
 		try {
-			console.log('CONNECTION UPDATED =>', update);
+			//console.log('CONNECTION UPDATED =>', update);
 
 			if (update.qr) {
 				boundary.emitForwardableEvent('kozz-iwac', 'qr_code');
 				Context.upsert({
 					qr: update.qr,
 				});
+
+				console.log(
+					qrCode.toString(update.qr, { type: 'terminal' }).then(console.log)
+				);
 			}
 
 			const { connection, lastDisconnect } = update;
@@ -167,18 +167,18 @@ const sessionEvents = (
 			//console.log(JSON.stringify(msg))
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message)
-			console.log(`processando mensagem ${msg.key.id}`);
+			console.log(`processando mensagem ${msg.key.id} em ${timestampToHour(msg.messageTimestamp*1000)}`,);
 			if (msg.message?.stickerMessage) {
 				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`;
 			}
-
 			try {
 				const payload = await createMessagePayload(msg, waSocket);
 				if (Context.get('blockedList').includes(payload.from)) {
 					return;
 				}
-
+				
 				await saveMessage(payload, msg);
+
 				boundary.emitMessage(payload);
 
 				updateChatMetadata({
@@ -188,6 +188,7 @@ const sessionEvents = (
 				});
 
 				boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
+
 			} catch (e) {
 				console.warn(e);
 			}
@@ -196,7 +197,7 @@ const sessionEvents = (
 
 	waSocket.ev.on('chats.update', async (payload: any) => {
 		try {
-			console.log('CHAT UPDATED!!! => \n', JSON.stringify(payload, undefined, '  '));
+			//console.log('CHAT UPDATED!!! => \n', JSON.stringify(payload, undefined, '  '));
 
 			// [TODO]: create types for all of this
 			payload.forEach(async (chat: any) => {
@@ -215,16 +216,16 @@ const sessionEvents = (
 				// participants update await 
 				if (id.includes('@g.us')) {
 					
-						const groupData = await getGroupData(id, waSocket);
-						if (!groupData) {
-							return;
-						}
-						const oneHour = 3600000;// 60 * 60 * 1000;
-						if (groupData?.lastFetched! > new Date().getTime() + oneHour) {
-				 		saveGroupChat(createGroupChatPayload(groupData));
+					const groupData = await getGroupData(id, waSocket);
+					if (!groupData) {
+						return;
+					}
+					const oneHour = 3600000;// 60 * 60 * 1000;
+					if (groupData?.lastFetched! > new Date().getTime() + oneHour) {
+						saveGroupChat(createGroupChatPayload(groupData));
 					}
 						
-					}
+				}
 			});
 		} catch (e) {
 			console.warn(e);
@@ -256,3 +257,12 @@ const sessionEvents = (
 
 	
 }
+
+export const updateGroupData = async (id: string )=>{
+		const groupData = await getGroupData(id, waSocket);
+		if (!groupData) {
+			return;
+		}
+		await saveGroupChat(createGroupChatPayload(groupData));
+		
+	}

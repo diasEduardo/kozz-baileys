@@ -95,3 +95,12 @@ export const getChatDetails = async (id: string) => {
 		return 0;
 	}
 };
+
+export const deleteFromGroupChatDb = async () => {
+	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
+	const pugeDate = new Date();
+	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
+
+	database.deleteValues('groupChat', group => group.lastFetched < pugeDate.getTime());
+	
+}

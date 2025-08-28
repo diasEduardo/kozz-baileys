@@ -5,7 +5,12 @@ import baileysFunctions, {
 import createBoundary from 'kozz-boundary-maker';
 import { createFolderOnInit } from './util/utility';
 import { createResourceGatheres } from './Resource';
-import { deleteFromMediaFolder } from './Store/MediaStore';
+import { deleteFromMediaDb, deleteFromMediaFolder } from './Store/MediaStore';
+import { CronJob } from 'cron';
+import fs from 'fs/promises';
+import { deleteFromChatMetadataDb } from './Store/MetadataStore';
+import { deleteFromMessageDb } from './Store/MessageStore';
+import { deleteFromGroupChatDb } from './Store/ChatStore';
 
 export const boundary = createBoundary({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
@@ -16,7 +21,19 @@ export const boundary = createBoundary({
 
 createFolderOnInit();
 
-initSession(boundary).then((waSocket: any) => {
+const deleteOldMedia = () => {
+	fs.readdir('./medias').then(files => {
+		files.forEach(file => {
+			fs.stat(`./medias/${file}`).then(stats => {
+				if (Date.now() - stats.birthtimeMs > 86400000) {
+					fs.unlink(`./medias/${file}`);
+				}
+			});
+		});
+	});
+};
+
+initSession(boundary).then(waSocket => {
 	const baileys = baileysFunctions(waSocket);
 
 	boundary.handleReplyWithText((payload, companion, body) => {
@@ -75,5 +92,35 @@ initSession(boundary).then((waSocket: any) => {
 });
 
 if(process.env.MUST_DELETE_MIDIA == 'true'){
-	deleteFromMediaFolder();
+	CronJob.from({
+		cronTime: '0 */1 * * * *',
+		onTick: deleteFromMediaFolder,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
+	CronJob.from({
+		cronTime: '0 */1 * * * *',
+		onTick: deleteFromMediaDb,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
+	CronJob.from({
+		cronTime: '0 */1 * * * *',
+		onTick: deleteFromChatMetadataDb,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
+	CronJob.from({
+		cronTime: '0 */1 * * * *',
+		onTick: deleteFromMessageDb,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
+	CronJob.from({
+		cronTime: '0 */1 * * * *',
+		onTick: deleteFromGroupChatDb,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
 }
+
