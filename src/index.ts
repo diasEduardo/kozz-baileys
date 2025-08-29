@@ -71,6 +71,8 @@ initSession(boundary).then(waSocket => {
 	});
 
 	boundary.handleSendMessage((payload, companion, body) => {
+		console.log({ payload, companion, body });
+
 		baileys.sendText(payload.chatId, body, undefined, companion.mentions);
 	});
 

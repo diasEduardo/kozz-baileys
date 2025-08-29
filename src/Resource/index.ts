@@ -2,6 +2,7 @@ import initBoundary from 'kozz-boundary-maker';
 import baileysFunctions from 'src/Client/BaileysFunctions';
 import Context from 'src/Context';
 import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
+import { getContact } from 'src/Store/ContactStore';
 import { getChatOrder } from 'src/Store/MetadataStore';
 
 export const createResourceGatheres = (
@@ -65,6 +66,18 @@ export const createResourceGatheres = (
 		return chatDetails;
 	};
 
+	const _getContactInfo = async ({ id }: { id: string }) => {
+		if (!id) {
+			return console.warn('Tried to fetch contact info but no ID was provided');
+		}
+		if (id.includes('@g.us')) {
+			return console.warn('Tried to fetch contact info but got an invalid ID:', id);
+		}
+
+		const contactInfo = await getContact(id);
+		return contactInfo;
+	};
+
 	const fetchChatStatus = () => {
 		return {
 			qr: Context.get('qr'),
@@ -77,6 +90,7 @@ export const createResourceGatheres = (
 	boundary.onAskResource('group_admin_list', _groupAdminList);
 	boundary.onAskResource('unread_count', _getUnreadCount);
 	boundary.onAskResource('chat_details', _getChatDetails);
+	boundary.onAskResource('contact_info', _getContactInfo);
 
 	boundary.onAskResource('chat_order', getChatOrder);
 

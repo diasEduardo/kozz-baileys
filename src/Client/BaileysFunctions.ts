@@ -9,6 +9,7 @@ import { generateHash, getFormattedDateAndTime } from 'src/util/utility';
 import {
 	CompanionObject,
 	InlineCommandMap,
+	StyleVariant,
 } from 'kozz-boundary-maker/dist/InlineCommand';
 import { getGroupChat } from 'src/Store/ChatStore';
 const webp = require('node-webpmux'); // import has type error.
@@ -70,8 +71,6 @@ const baileysFunctions = (client: WaSocket) => {
 		},
 		quoteId?: string
 	) => {
-		console.log({ media, options });
-
 		const sendMediaOptions: Partial<AnyMessageContent> = {
 			viewOnce: options?.viewOnce,
 			mentions: options?.mentionedList ?? [],
@@ -140,8 +139,6 @@ const baileysFunctions = (client: WaSocket) => {
 		}
 
 		if (media.mimeType.startsWith('audio')) {
-			console.log(media);
-
 			try {
 				return client.sendMessage(
 					contactId,
@@ -269,7 +266,32 @@ const baileysFunctions = (client: WaSocket) => {
 	};
 };
 
-export const inlineCommandMapFunctions = (): InlineCommandMap => {
+const getMarkdownFor = (variant: StyleVariant, position: 'begin' | 'end') => {
+	const markdownMap: Record<'begin' | 'end', Record<StyleVariant, string>> = {
+		begin: {
+			bold: '*',
+			code: '```',
+			italic: '_',
+			listItem: '- ',
+			monospace: '`',
+			paragraph: '> ',
+			stroke: '~',
+		},
+		end: {
+			bold: '*',
+			code: '```',
+			italic: '_',
+			listItem: '',
+			monospace: '`',
+			paragraph: '',
+			stroke: '~',
+		},
+	};
+
+	return markdownMap[position][variant];
+};
+
+export const inlineCommandMapFunctions = (): Partial<InlineCommandMap> => {
 	const mention = async (
 		companion: CompanionObject,
 		data: { id: string },
@@ -317,88 +339,34 @@ export const inlineCommandMapFunctions = (): InlineCommandMap => {
 			stringValue: '',
 		};
 	};
-	const bold = async (
+
+	const begin_style = async (
 		companion: CompanionObject,
-		data: { content: string },
+		data: { variant: StyleVariant },
 		payload: any
 	) => {
+		const stringValue = getMarkdownFor(data.variant, 'begin');
+
 		return {
 			companion: {
 				mentions: [...companion.mentions],
 			},
-			stringValue: data.content,
+			stringValue,
 		};
 	};
-	const italic = async (
+
+	const end_style = async (
 		companion: CompanionObject,
-		data: { content: string },
+		data: { variant: StyleVariant },
 		payload: any
 	) => {
+		const stringValue = getMarkdownFor(data.variant, 'end');
+
 		return {
 			companion: {
 				mentions: [...companion.mentions],
 			},
-			stringValue: data.content,
-		};
-	};
-	const underscore = async (
-		companion: CompanionObject,
-		data: { content: string },
-		payload: any
-	) => {
-		return {
-			companion: {
-				mentions: [...companion.mentions],
-			},
-			stringValue: data.content,
-		};
-	};
-	const stroke = async (
-		companion: CompanionObject,
-		data: { content: string },
-		payload: any
-	) => {
-		return {
-			companion: {
-				mentions: [...companion.mentions],
-			},
-			stringValue: data.content,
-		};
-	};
-	const paragraph = async (
-		companion: CompanionObject,
-		data: { content: string },
-		payload: any
-	) => {
-		return {
-			companion: {
-				mentions: [...companion.mentions],
-			},
-			stringValue: data.content,
-		};
-	};
-	const listitem = async (
-		companion: CompanionObject,
-		data: { content: string },
-		payload: any
-	) => {
-		return {
-			companion: {
-				mentions: [...companion.mentions],
-			},
-			stringValue: data.content,
-		};
-	};
-	const monospace = async (
-		companion: CompanionObject,
-		data: { content: string },
-		payload: any
-	) => {
-		return {
-			companion: {
-				mentions: [...companion.mentions],
-			},
-			stringValue: data.content,
+			stringValue,
 		};
 	};
 
@@ -406,13 +374,8 @@ export const inlineCommandMapFunctions = (): InlineCommandMap => {
 		mention,
 		invisiblemention,
 		tageveryone,
-		bold,
-		italic,
-		underscore,
-		stroke,
-		paragraph,
-		listitem,
-		monospace,
+		begin_style,
+		end_style,
 	};
 };
 
