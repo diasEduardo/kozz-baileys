@@ -6,7 +6,7 @@
 	"license": "MIT",
 	"type": "commonjs",
 	"scripts": {
-		"dev": "link-module-alias && concurrently \"tsc --watch\" \"nodemon dist/index.js --ignore ./creds\"",
+		"dev": "tsc --watch & node --watch --watch-path=dist dist/index.js",
 		"start": "tsc && link-module-alias && node dist/index.js",
 		"startdev": "tsc && link-module-alias && node -r dotenv/config dist/index.js dotenv_config_path=./.env.dev",
 		"test": "jest",

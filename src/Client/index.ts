@@ -169,7 +169,8 @@ const sessionEvents = (
 
 			try {
 				const payload = await createMessagePayload(msg, waSocket);
-				if (Context.get('blockedList').includes(payload.from)) {
+
+				if (payload.contact.isBlocked) {
 					return;
 				}
 

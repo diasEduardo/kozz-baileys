@@ -5,9 +5,18 @@ import { ContactModel } from './models';
 const database = Context.get('database');
 
 export const saveContact = async (contact: ContactPayload): Promise<string> => {
-	await database.upsert('contact', {
-		...contact,
-	});
+	const oldContact = await database.getById('contact', contact.id);
+
+	if (oldContact && !contact.publicName) {
+		await database.upsert('contact', {
+			...oldContact,
+			publicName: oldContact.publicName,
+		});
+	} else {
+		await database.upsert('contact', {
+			...contact,
+		});
+	}
 
 	return contact.id;
 };

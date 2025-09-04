@@ -2,7 +2,7 @@ import { WAMessage, WASocket, proto } from 'baileys';
 import { ContactPayload, GroupChat, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import { getContact } from 'src/Store/ContactStore';
-import { getMessage } from 'src/Store/MessageStore';
+import { getMessage, saveMessage } from 'src/Store/MessageStore';
 import { GroupChatModel } from 'src/Store/models';
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
@@ -67,10 +67,69 @@ export const createContactFromSync = async (contact: {
 	};
 };
 
+export const createtTaggedContactPayload = async (
+	message: WAMessage
+): Promise<ContactPayload[]> => {
+	let contacts: ContactPayload[] = [];
+	if (message.message?.extendedTextMessage?.contextInfo?.mentionedJid) {
+		for (const contactId of message.message?.extendedTextMessage?.contextInfo
+			?.mentionedJid) {
+			const contact = await getContact(contactId);
+			if (contact) {
+				contacts.push(contact);
+			}
+		}
+	}
+
+	return contacts;
+};
+
+export const handleEditMessage = async (message: WAMessage) => {
+	if (
+		message.message?.protocolMessage?.type ==
+		proto.Message.ProtocolMessage.Type.MESSAGE_EDIT
+	) {
+		const editedId = message.message?.protocolMessage?.key?.id!;
+		let editedMsg = await getMessage(editedId);
+
+		if (editedMsg) {
+			const editedMessageBody =
+				message.message?.protocolMessage?.editedMessage?.conversation ||
+				message.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text ||
+				message.message?.protocolMessage?.editedMessage?.imageMessage?.caption ||
+				message.message?.protocolMessage?.editedMessage?.videoMessage?.caption ||
+				'';
+			editedMsg.body = editedMessageBody;
+
+			editedMsg.santizedBody = editedMessageBody
+				.toLowerCase()
+				.normalize('NFKD')
+				.replace(/[\u0300-\u036f]/g, '');
+
+			const editedTaggedContact = await createtTaggedContactPayload(message);
+			editedMsg.taggedContacts = editedTaggedContact;
+
+			let editedTaggedConctactFriendlyBody = editedMessageBody;
+			if (editedTaggedContact.length) {
+				editedTaggedConctactFriendlyBody = replaceTaggedName(
+					editedMessageBody,
+					editedTaggedContact
+				);
+			}
+			editedMsg.taggedConctactFriendlyBody = editedTaggedConctactFriendlyBody;
+			editedMsg.id = `${editedMsg.id}_edited${new Date().getTime()}`;
+
+			await saveMessage(editedMsg, message);
+		}
+	}
+};
+
 export const createMessagePayload = async (
 	message: WAMessage,
 	waSocket: WASocket
 ): Promise<MessageReceived> => {
+	handleEditMessage(message); // check if is edit message
+
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
 	const taggedContact = await createtTaggedContactPayload(message);
@@ -118,6 +177,49 @@ export const createMessagePayload = async (
 		console.log({ id, quotedMessageId, quotedMessage });
 	}
 
+	if (quotedMessageId && quotedMessage) {
+		const quoteMessage = {
+			key: {
+				remoteJid: message?.key?.remoteJid,
+				fromMe: message?.key?.fromMe,
+				id: quotedMessageId,
+				participant: message?.key?.participant,
+			},
+			message: contextInfo?.quotedMessage,
+		};
+		const mediaQuote = await downloadMediaFromMessage(quoteMessage, waSocket);
+
+		if (mediaQuote) {
+			quotedMessage.media = mediaQuote;
+			quotedMessage.messageType = contextInfo?.quotedMessage?.extendedTextMessage
+				? 'TEXT'
+				: contextInfo?.quotedMessage?.audioMessage
+				? 'AUDIO'
+				: contextInfo?.quotedMessage?.stickerMessage
+				? 'STICKER'
+				: contextInfo?.quotedMessage?.videoMessage
+				? 'VIDEO'
+				: contextInfo?.quotedMessage?.imageMessage
+				? 'IMAGE'
+				: 'TEXT';
+
+			quotedMessage.isViewOnce =
+				(
+					contextInfo?.quotedMessage?.audioMessage ||
+					contextInfo?.quotedMessage?.videoMessage ||
+					contextInfo?.quotedMessage?.imageMessage
+				)?.viewOnce || false;
+
+			quotedMessage.taggedConctactFriendlyBody =
+				(
+					contextInfo?.quotedMessage?.videoMessage ||
+					contextInfo?.quotedMessage?.imageMessage
+				)?.caption || '';
+
+			await saveMessage(quotedMessage, quotedMessage.originalMessagePayload as any);
+		}
+	}
+
 	return {
 		body: messageBody,
 		boundaryName: process.env.BOUNDARY_NAME ?? '',
@@ -143,23 +245,6 @@ export const createMessagePayload = async (
 		taggedConctactFriendlyBody: taggedConctactFriendlyBody,
 		media,
 	};
-};
-
-export const createtTaggedContactPayload = async (
-	message: WAMessage
-): Promise<ContactPayload[]> => {
-	let contacts: ContactPayload[] = [];
-	if (message.message?.extendedTextMessage?.contextInfo?.mentionedJid) {
-		for (const contactId of message.message?.extendedTextMessage?.contextInfo
-			?.mentionedJid) {
-			const contact = await getContact(contactId);
-			if (contact) {
-				contacts.push(contact);
-			}
-		}
-	}
-
-	return contacts;
 };
 
 export const createGroupChatPayload = (
