@@ -1,7 +1,13 @@
 import initBoundary from 'kozz-boundary-maker';
 import baileysFunctions from 'src/Client/BaileysFunctions';
 import Context from 'src/Context';
-import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
+import {
+	getAllGroupChats,
+	getAllPrivateChats,
+	getChatDetails,
+	getGroupChat,
+	getUnreadCount,
+} from 'src/Store/ChatStore';
 import { getContact } from 'src/Store/ContactStore';
 import { getChatOrder } from 'src/Store/MetadataStore';
 
@@ -78,11 +84,20 @@ export const createResourceGatheres = (
 		return contactInfo;
 	};
 
-	const fetchChatStatus = () => {
+	const _chatStatus = () => {
 		return {
 			qr: Context.get('qr'),
 			ready: Context.get('ready'),
 		};
+	};
+
+	const _getAllGroups = () => {
+		const allGroups = getAllGroupChats();
+		return allGroups;
+	};
+
+	const _getAllPrivateChats = () => {
+		return getAllPrivateChats();
 	};
 
 	boundary.onAskResource('contact_profile_pic', _getProfilePicUrl);
@@ -91,8 +106,8 @@ export const createResourceGatheres = (
 	boundary.onAskResource('unread_count', _getUnreadCount);
 	boundary.onAskResource('chat_details', _getChatDetails);
 	boundary.onAskResource('contact_info', _getContactInfo);
-
 	boundary.onAskResource('chat_order', getChatOrder);
-
-	boundary.onAskResource('chat_status', fetchChatStatus);
+	boundary.onAskResource('chat_status', _chatStatus);
+	boundary.onAskResource('all_groups', _getAllGroups);
+	boundary.onAskResource('all_private_chats', _getAllPrivateChats);
 };

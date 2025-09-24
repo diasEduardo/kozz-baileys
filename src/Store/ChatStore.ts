@@ -17,6 +17,19 @@ export const saveGroupChat = async (groupChat: GroupChat): Promise<string> => {
 	return groupChat.id;
 };
 
+const sanitizeGroupChatPayload = (groupChat: GroupChatModel) => {
+	return {
+		...groupChat,
+		participants: groupChat.participants?.map(participant => {
+			const [id, admin] = participant.split('#');
+			return {
+				id,
+				admin: admin === 'true',
+			};
+		}),
+	};
+};
+
 export const getGroupChat = async (
 	id: string
 ): Promise<
@@ -33,16 +46,7 @@ export const getGroupChat = async (
 		return null;
 	}
 
-	return {
-		...groupChat,
-		participants: groupChat.participants?.map(participant => {
-			const [id, admin] = participant.split('#');
-			return {
-				id,
-				admin: admin === 'true',
-			};
-		}),
-	};
+	return sanitizeGroupChatPayload(groupChat);
 };
 
 export const savePrivateChat = async ({ id }: PrivateChatModel) => {
@@ -92,5 +96,24 @@ export const getChatDetails = async (id: string) => {
 		}
 	} catch (e) {
 		return 0;
+	}
+};
+
+export const getAllGroupChats = () => {
+	try {
+		const allGroupChats = database.getValues('groupChat', () => true) ?? [];
+		return allGroupChats.map(sanitizeGroupChatPayload);
+	} catch (e) {
+		console.warn(e);
+		return [];
+	}
+};
+
+export const getAllPrivateChats = () => {
+	try {
+		return database.getValues('privateChat', () => true) ?? [];
+	} catch (e) {
+		console.warn(e);
+		return [];
 	}
 };

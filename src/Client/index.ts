@@ -13,7 +13,11 @@ import makeWASocket, {
 } from 'baileys';
 import log from 'baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
-import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore';
+import {
+	saveGroupChat,
+	savePrivateChat,
+	updateChatUnreadCount,
+} from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
 import { saveMessage } from 'src/Store/MessageStore';
 import {
@@ -130,38 +134,36 @@ const sessionEvents = (
 		}
 	});
 
-	// waSocket.ev.on('messaging-history.set', (payload: any) => {
-	// 	try {
-	// 		payload.messages.forEach(async (msg: any) => {
-	// 			const payload = await createMessagePayload(msg, waSocket);
-	// 			await saveMessage(payload, msg);
-	// 		});
+	waSocket.ev.on('messaging-history.set', (payload: any) => {
+		try {
+			payload.messages.forEach(async (msg: any) => {
+				const payload = await createMessagePayload(msg, waSocket);
+				await saveMessage(payload, msg);
+			});
 
-	// 		payload.contacts.forEach(async (contact: any) => {
-	// 			const payload = await createContactFromSync(contact);
-	// 			await saveContact(payload);
+			payload.contacts.forEach(async (contact: any) => {
+				const payload = await createContactFromSync(contact);
+				await saveContact(payload);
 
-	// 			if (payload.isGroup) {
-	// 				const groupData = getGroupData(payload.id, waSocket);
-	// 				if (!groupData) {
-	// 					return;
-	// 				}
-	// 				await saveGroupChat(createGroupChatPayload(groupData));
-	// 			}
-	// 		});
+				if (payload.isGroup) {
+					const groupData = getGroupData(payload.id, waSocket);
+					// if (!groupData) {
+					// 	return;
+					// }
+					await saveGroupChat(createGroupChatPayload(groupData));
+				}
+			});
 
-	// 		payload.chats.forEach(async (chat: any) => {
-	// 			updateChatUnreadCount(chat.id, chat.unreadCount);
-	// 		});
-	// 	} catch (e) {
-	// 		console.warn(e);
-	// 	}
-	// });
+			payload.chats.forEach(async (chat: any) => {
+				updateChatUnreadCount(chat.id, chat.unreadCount);
+			});
+		} catch (e) {
+			console.warn(e);
+		}
+	});
 
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
 		for (const msg of upsert.messages) {
-			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
-			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message)
 			console.log(`processando mensagem ${msg.key.id}`);
 			if (msg.message?.stickerMessage) {
 				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`;
@@ -174,16 +176,23 @@ const sessionEvents = (
 					return;
 				}
 
+				if (payload.chatId.includes('@g.us')) {
+					const chatMetadata = await getGroupData(payload.chatId, waSocket);
+					await saveGroupChat(createGroupChatPayload(chatMetadata));
+				} else {
+					savePrivateChat({ id: payload.chatId });
+				}
+
 				await saveMessage(payload, msg);
 				boundary.emitMessage(payload);
 
-				// updateChatMetadata({
-				// 	id: payload.chatId,
-				// 	lastMessagePreview: getMessagePreview(payload),
-				// 	lastMessageTimestamp: new Date().getTime(),
-				// });
+				updateChatMetadata({
+					id: payload.chatId,
+					lastMessagePreview: getMessagePreview(payload),
+					lastMessageTimestamp: new Date().getTime(),
+				});
 
-				// boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
+				boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
 			} catch (e) {
 				console.warn(e);
 			}
