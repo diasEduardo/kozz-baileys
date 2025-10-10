@@ -98,6 +98,7 @@ export const contactSchema = {
 	primaryKey: 'id',
 	properties: {
 		id: 'string',
+		lid: 'string',
 		publicName: 'string',
 		privateName: 'string',
 		isBlocked: 'bool',

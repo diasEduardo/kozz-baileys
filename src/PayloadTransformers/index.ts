@@ -59,7 +59,7 @@ export const createContactFromSync = async (contact: {
 	return {
 		hostAdded: false,
 		id: contact.id,
-		isHostAccount: hostData.id === contact.id,
+		isHostAccount: hostData.id === contact.id || hostData.lid === contact.id,
 		isBlocked,
 		publicName: contact.name || 'no_name',
 		isGroup: contact.id.includes('@g.us'),

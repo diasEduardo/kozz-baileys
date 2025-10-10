@@ -19,7 +19,7 @@ export const initDatabase = () => {
 			chatMetadataModel,
 			privateChatSchema,
 		],
-		schemaVersion: 1,
+		schemaVersion: 2,
 	};
 
 	const instance = new Realm(config);

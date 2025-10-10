@@ -23,12 +23,13 @@ export const getMyContactFromCredentials = () => {
 	const credFile = fs.readFileSync('./creds/creds.json');
 	let jsonCred = JSON.parse(credFile.toString());
 	jsonCred.me.id = clearContact(jsonCred.me.id!);
+	jsonCred.me.lid = clearContact(jsonCred.me.lid!);
 	return jsonCred.me;
 };
 
 export const replaceTaggedName = (text: string, tagged: ContactPayload[]) => {
-	const contacts = tagged.map(contact => {
-		const sanitizedId = '@' + contact.id.replace('@s.whatsapp.net', '');
+		const contacts = tagged.map(contact => {
+		const sanitizedId = '@' + contact.id.replace('@s.whatsapp.net', '').replace('@lid', '');
 		const publicName = contact.publicName;
 
 		return {
@@ -43,7 +44,7 @@ export const replaceTaggedName = (text: string, tagged: ContactPayload[]) => {
 			if (!word.startsWith('@')) {
 				return word;
 			}
-
+			
 			const contact = contacts.find(contact => contact.sanitizedId === word);
 			if (contact) {
 				return contact.publicName;
