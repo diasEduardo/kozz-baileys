@@ -1,5 +1,5 @@
 import { ContactPayload, GroupChat, Media, MessageReceived } from 'kozz-types';
-import { Overwrite } from 'src/util/utilityTypes';
+import { Overwrite } from 'src/util/utilityTypes.js';
 
 export type ChatMetadata = {
 	id: string;
@@ -98,7 +98,6 @@ export const contactSchema = {
 	primaryKey: 'id',
 	properties: {
 		id: 'string',
-		lid: 'string',
 		publicName: 'string',
 		privateName: 'string',
 		isBlocked: 'bool',

@@ -1,5 +1,5 @@
-import Context from 'src/Context';
-import { ChatMetadata } from './models';
+import Context from 'src/Context/index.js';
+import { ChatMetadata } from './models.js';
 
 const database = Context.get('database');
 
@@ -31,6 +31,6 @@ export const deleteFromChatMetadataDb = async () => {
 	const pugeDate = new Date();
 	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
 
-	database.deleteValues('chatMetadata', metadata => metadata.lastMessageTimestamp < pugeDate.getTime());
+	database.deleteValues('chatMetadata', (metadata:any) => metadata.lastMessageTimestamp < pugeDate.getTime());
 	
 }

@@ -1,13 +1,15 @@
 import initBoundary from 'kozz-boundary-maker';
-import { updateGroupData } from 'src/Client';
-import baileysFunctions from 'src/Client/BaileysFunctions';
-import Context from 'src/Context';
-import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore';
-import { getChatOrder } from 'src/Store/MetadataStore';
+import { updateGroupData } from 'src/Client/index.js';
+import baileysFunctions from 'src/Client/BaileysFunctions.js';
+import Context from 'src/Context/index.js';
+import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore.js';
+import { getChatOrder } from 'src/Store/MetadataStore.js';
+
+
 
 export const createResourceGatheres = (
-	boundary: ReturnType<typeof initBoundary>,
-	baileys: ReturnType<typeof baileysFunctions>
+	boundary: ReturnType<typeof initBoundary.default>,
+	baileys: ReturnType<(typeof baileysFunctions)>
 ) => {
 	const _getProfilePicUrl = async ({ id }: { id: string }) => {
 		if (!id) {
@@ -59,7 +61,7 @@ export const createResourceGatheres = (
 		}
 		
 		return {
-			adminList: groupData.participants.filter(member => member.admin),
+			adminList: groupData.participants.filter((member:any) => member.admin),
 		};
 	};
 

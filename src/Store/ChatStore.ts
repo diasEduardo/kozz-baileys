@@ -1,7 +1,6 @@
 import { GroupChat } from 'kozz-types';
-import Context from 'src/Context';
-import { GroupChatModel, PrivateChatModel } from './models';
-import { getContact } from './ContactStore';
+import Context from 'src/Context/index.js';
+import { GroupChatModel, PrivateChatModel } from './models.js';
 
 const database = Context.get('database');
 
@@ -36,7 +35,7 @@ export const getGroupChat = async (
 
 	return {
 		...groupChat,
-		participants: groupChat.participants.map(participant => {
+		participants: groupChat.participants.map((participant:any) => {
 			const [id, admin] = participant.split('#');
 			return {
 				id,
@@ -101,6 +100,6 @@ export const deleteFromGroupChatDb = async () => {
 	const pugeDate = new Date();
 	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
 
-	database.deleteValues('groupChat', group => group.lastFetched < pugeDate.getTime());
+	database.deleteValues('groupChat', (group:any) => group.lastFetched < pugeDate.getTime());
 	
 }

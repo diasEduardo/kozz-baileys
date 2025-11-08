@@ -1,10 +1,10 @@
-import { WaSocket } from 'src/Client';
-import context from '../Context';
+import { WaSocket } from 'src/Client/index.js';
+import context from '../Context/index.js';
 import { Boom } from '@hapi/boom';
 import { DisconnectReason } from 'baileys';
 
 export const onReady = (waSocket: WaSocket, cb: () => any) => {
-	waSocket.ev.on('connection.update', conn => {
+	waSocket.ev.on('connection.update', (conn:any) => {
 		if (conn.connection === 'open') {
 			cb();
 		}
@@ -21,7 +21,7 @@ export const syncBlockedList = (waSocket: WaSocket) => {
 };
 
 export const reconnectWhenFail = (waSocket: WaSocket, initFn: () => any) => {
-	waSocket.ev.on('connection.update', update => {
+	waSocket.ev.on('connection.update', (update:any) => {
 		const { connection, lastDisconnect } = update;
 
 		if (connection === 'close') {

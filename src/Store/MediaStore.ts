@@ -1,9 +1,8 @@
 import { Media } from 'kozz-types';
 import { randomUUID } from 'crypto';
-import Context from 'src/Context';
+import Context from 'src/Context/index.js';
 import fs from 'fs/promises';
 import mime from 'mime-types';
-import { delay } from 'src/util/utility';
 
 const database = Context.get('database');
 const fileDownloadPath = process.env.MIDIAS_PATH || './medias'
@@ -49,7 +48,7 @@ export const deleteFromMediaFolder = async () => {
 		const pugeDate = new Date();
 		pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
 
-		const midiasToDelete = await database.getValues('media', midia => midia.timestamp < pugeDate.getTime() && !midia.deleted);
+		const midiasToDelete = await database.getValues('media', (midia:any) => midia.timestamp < pugeDate.getTime() && !midia.deleted);
 		//console.log(midiasToDelete?.length)
 		if(midiasToDelete){
 			for (const midia of midiasToDelete){
@@ -81,6 +80,6 @@ export const deleteFromMediaDb = async () => {
 	const pugeDate = new Date();
 	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
 
-	database.deleteValues('media', midia => midia.timestamp < pugeDate.getTime());
+	database.deleteValues('media', (midia:any) => midia.timestamp < pugeDate.getTime());
 	
 }

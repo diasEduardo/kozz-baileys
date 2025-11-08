@@ -1,6 +1,6 @@
 import { ContactPayload, Media, SendMessagePayload } from 'kozz-types';
-import Context from 'src/Context';
-import { ContactModel } from './models';
+import Context from 'src/Context/index.js';
+import { ContactModel } from './models.js';
 
 const database = Context.get('database');
 

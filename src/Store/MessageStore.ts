@@ -1,8 +1,8 @@
 import { MessageReceived } from 'kozz-types';
-import Context from 'src/Context';
-import { getMedia, saveMedia } from './MediaStore';
-import { getContact, saveContact } from './ContactStore';
-import { MessageModel } from './models';
+import Context from 'src/Context/index.js';
+import { getMedia, saveMedia } from './MediaStore.js';
+import { getContact, saveContact } from './ContactStore.js';
+import { MessageModel } from './models.js';
 import { proto } from 'baileys';
 
 const database = Context.get('database');
@@ -79,6 +79,6 @@ export const deleteFromMessageDb = async () => {
 	const pugeDate = new Date();
 	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
 
-	database.deleteValues('message', msg => msg.timestamp! < pugeDate.getTime()/1000);
+	database.deleteValues('message', (msg:any) => msg.timestamp! < pugeDate.getTime()/1000);
 	
 }

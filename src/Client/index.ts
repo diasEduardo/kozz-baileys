@@ -11,23 +11,22 @@ import makeWASocket, {
 	makeCacheableSignalKeyStore,
 	useMultiFileAuthState,
 } from 'baileys';
-import log from 'baileys/lib/Utils/logger';
+import log from 'baileys/lib/Utils/logger.js';
 import { Boom } from '@hapi/boom';
-import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore';
-import Context, { setMeFromCreds } from 'src/Context';
-import { saveMessage } from 'src/Store/MessageStore';
+import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore.js';
+import Context, { setMeFromCreds } from 'src/Context/index.js';
+import { saveMessage } from 'src/Store/MessageStore.js';
 import {
 	createContactFromSync,
 	createGroupChatPayload,
 	createMessagePayload,
 	createGroupParticipantsUpdatePayload
-} from 'src/PayloadTransformers';
+} from 'src/PayloadTransformers/index.js';
 import createBoundary from 'kozz-boundary-maker';
-import { saveContact } from 'src/Store/ContactStore';
-import { updateChatMetadata } from 'src/Store/MetadataStore';
-import { getMessagePreview, timestampToHour } from 'src/util/utility';
-import { groupMemo } from 'src/util/groupMemo';
-import { deleteFromMediaFolder } from 'src/Store/MediaStore';
+import { saveContact } from 'src/Store/ContactStore.js';
+import { updateChatMetadata } from 'src/Store/MetadataStore.js';
+import { getMessagePreview, timestampToHour } from 'src/util/utility.js';
+import { groupMemo } from 'src/util/groupMemo.js';
 import qrCode from 'qrcode';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
@@ -35,18 +34,21 @@ export let waSocket:any;
 console.clear();
 console.log('Initializing DB...');
 
-export const initSession = (boundary: ReturnType<typeof createBoundary>) => {
+export const initSession = (boundary: ReturnType<typeof createBoundary.default>) => {
 	return startSocket(boundary);
 };
 
-const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
+const startSocket = async (boundary: ReturnType<typeof createBoundary.default>) => {
 	const logger = log.child({});
 	logger.level = 'error';
 
 	console.log('Creating auth...');
 	const { state, saveCreds } = await useMultiFileAuthState('./creds');
 	console.log('Done');
-	const { version, isLatest } = await fetchLatestBaileysVersion();
+	let { version, isLatest } = await fetchLatestBaileysVersion();
+	version = [2, 3000, 1029030078];
+	version = [2, 3000, 1027934701];
+	isLatest = false;
 	console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
 	 waSocket = makeWASocket({
@@ -81,7 +83,7 @@ export const getGroupData = async (
 const sessionEvents = (
 	waSocket: ReturnType<typeof makeWASocket>,
 	saveCreds: any,
-	boundary: ReturnType<typeof createBoundary>
+	boundary: ReturnType<typeof createBoundary.default>
 ) => {
 	waSocket.ev.on('creds.update', () => {
 		saveCreds();

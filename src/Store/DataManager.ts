@@ -7,7 +7,7 @@ import {
 	messageSchema,
 	privateChatSchema,
 	chatMetadataModel,
-} from './models';
+} from './models.js';
 
 export const initDatabase = () => {
 	const config = {
@@ -19,7 +19,7 @@ export const initDatabase = () => {
 			chatMetadataModel,
 			privateChatSchema,
 		],
-		schemaVersion: 2,
+		schemaVersion: 5,
 	};
 
 	const instance = new Realm(config);
@@ -38,7 +38,7 @@ export const initDatabase = () => {
 			let obj = {} as EntityMap[Type];
 			instance.write(() => {
 				obj = instance
-					.create(entityType, { ...data }, Realm.UpdateMode.All)
+					.create(String(entityType), { ...data }, Realm.UpdateMode.All)
 					.toJSON() as EntityMap[Type];
 			});
 
@@ -61,12 +61,12 @@ export const initDatabase = () => {
 	) => {
 		try {
 			return instance
-				.objects(entityType)
+				.objects(String(entityType))
 				.map(obj => obj.toJSON() as EntityMap[Type])
 				.filter(filterFn);
 		} catch (e) {
 			console.warn(
-				`Error while fetching ${entityType}. No database transaction was done. Error = ${e}`
+				`Error while fetching ${String(entityType)}. No database transaction was done. Error = ${e}`
 			);
 			return undefined;
 		}
@@ -75,11 +75,11 @@ export const initDatabase = () => {
 	const getById = <Type extends keyof EntityMap>(entityType: Type, id: string) => {
 		try {
 			return instance
-				.objectForPrimaryKey(entityType, id)
+				.objectForPrimaryKey(String(entityType), id)
 				?.toJSON() as EntityMap[Type];
 		} catch (e) {
 			console.warn(
-				`Error while fetcing ${entityType} with primaryKey ${id}. No database transaction was done. Error = ${e}`
+				`Error while fetcing ${String(entityType)} with primaryKey ${id}. No database transaction was done. Error = ${e}`
 			);
 			return undefined;
 		}
@@ -93,14 +93,14 @@ export const initDatabase = () => {
 	) => {
 		try {
 			const objs = instance
-				.objects(entityType)
+				.objects(String(entityType))
 				.sorted(sortField.toString(), sortDirection === 'asc')
 				.toJSON() as EntityMap[Type][];
 
 			return limit === 0 ? objs : objs.slice(0, limit);
 		} catch (e) {
 			console.warn(
-				`Error while fetcing ${entityType}, sorting ${sortField.toString()} in ${sortDirection}. No database transaction was done. Error = ${e}`
+				`Error while fetcing ${String(entityType)}, sorting ${sortField.toString()} in ${sortDirection}. No database transaction was done. Error = ${e}`
 			);
 		}
 	};
@@ -113,7 +113,7 @@ export const initDatabase = () => {
 			let count = 0;
 			instance.write(() => {
 				instance
-					.objects(entityType)
+					.objects(String(entityType))
 					.filter(obj => filterFn(obj.toJSON() as EntityMap[Type]))
 					.forEach(obj => {
 						instance.delete(obj);
@@ -124,7 +124,7 @@ export const initDatabase = () => {
 			return count;
 		} catch (e) {
 			console.warn(
-				`Error while deleting ${entityType}. No database transaction was done. Error = ${e}`
+				`Error while deleting ${String(entityType)}. No database transaction was done. Error = ${e}`
 			);
 			return 0;
 		}

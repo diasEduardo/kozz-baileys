@@ -1,18 +1,18 @@
-import { initSession } from './Client';
+import { initSession } from './Client/index.js';
 import baileysFunctions, {
 	inlineCommandMapFunctions,
-} from './Client/BaileysFunctions';
-import createBoundary from 'kozz-boundary-maker';
-import { createFolderOnInit } from './util/utility';
-import { createResourceGatheres } from './Resource';
-import { deleteFromMediaDb, deleteFromMediaFolder } from './Store/MediaStore';
+} from './Client/BaileysFunctions.js';
+import  createBoundary from 'kozz-boundary-maker';
+import { createFolderOnInit } from './util/utility.js';
+import { createResourceGatheres } from './Resource/index.js';
+import { deleteFromMediaDb, deleteFromMediaFolder } from './Store/MediaStore.js';
 import { CronJob } from 'cron';
 import fs from 'fs/promises';
-import { deleteFromChatMetadataDb } from './Store/MetadataStore';
-import { deleteFromMessageDb } from './Store/MessageStore';
-import { deleteFromGroupChatDb } from './Store/ChatStore';
+import { deleteFromChatMetadataDb } from './Store/MetadataStore.js';
+import { deleteFromMessageDb } from './Store/MessageStore.js';
+import { deleteFromGroupChatDb } from './Store/ChatStore.js';
 
-export const boundary = createBoundary({
+export const boundary = createBoundary.default({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
 	chatPlatform: 'Baileys',
 	name: process.env.BOUNDARY_NAME || 'kozz-baileys',
@@ -33,14 +33,14 @@ const deleteOldMedia = () => {
 	});
 };
 
-initSession(boundary).then(waSocket => {
+initSession(boundary).then((waSocket:any) => {
 	const baileys = baileysFunctions(waSocket);
 
-	boundary.handleReplyWithText((payload, companion, body) => {
+	boundary.handleReplyWithText((payload:any, companion:any, body:any) => {
 		baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions);
 	});
 
-	boundary.handleReplyWithSticker(async (payload, companion, caption) => {
+	boundary.handleReplyWithSticker(async (payload:any, companion:any, caption:any) => {
 		baileys.sendMedia(
 			payload.chatId,
 			payload.media!,
@@ -55,7 +55,7 @@ initSession(boundary).then(waSocket => {
 		);
 	});
 
-	boundary.handleReplyWithMedia((payload, companion, caption) => {
+	boundary.handleReplyWithMedia((payload:any, companion:any, caption:any) => {
 		baileys.sendMedia(
 			payload.chatId,
 			payload.media!,
@@ -67,11 +67,11 @@ initSession(boundary).then(waSocket => {
 		);
 	});
 
-	boundary.handleSendMessage((payload, companion, body) => {
+	boundary.handleSendMessage((payload:any, companion:any, body:any) => {
 		baileys.sendText(payload.chatId, body, undefined, companion.mentions);
 	});
 
-	boundary.handleSendMessageWithMedia((payload, companion, body) => {
+	boundary.handleSendMessageWithMedia((payload:any, companion:any, body:any) => {
 		baileys.sendMedia(
 			payload.chatId,
 			payload.media!,
@@ -80,11 +80,11 @@ initSession(boundary).then(waSocket => {
 		);
 	});
 
-	boundary.handleReactMessage(async payload => {
+	boundary.handleReactMessage(async (payload:any) => {
 		baileys.reactMessage(payload.messageId, payload.emote);
 	});
 
-	boundary.hanldeDeleteMessage(payload => {
+	boundary.hanldeDeleteMessage((payload:any) => {
 		baileys.deleteMessage(payload.messageId);
 	});
 

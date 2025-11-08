@@ -1,7 +1,7 @@
 import { downloadMediaMessage, WAMessage } from 'baileys';
 import { Media } from 'kozz-types';
-import { WaSocket } from 'src/Client';
-import logger from './logger';
+import logger from './logger.js';
+import { WaSocket } from 'src/Client/index.js';
 
 const messageMediaTypes = [
 	'videoMessage',

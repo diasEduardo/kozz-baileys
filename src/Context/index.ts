@@ -1,8 +1,8 @@
-import { initDatabase } from 'src/Store/DataManager';
-import { getMyContactFromCredentials } from 'src/util/utility';
+import { initDatabase } from 'src/Store/DataManager.js';
+import { getMyContactFromCredentials } from 'src/util/utility.js';
 
 type ContextData = {
-	blockedList: string[];
+	blockedList: (string|undefined)[];
 	ready: boolean;
 	qr: string | null;
 	hostData: {

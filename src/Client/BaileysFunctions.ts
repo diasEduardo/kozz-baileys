@@ -1,17 +1,19 @@
-import { updateGroupData, WaSocket } from '.';
+import { updateGroupData, WaSocket } from './index.js';
 import { AnyMessageContent, proto } from 'baileys';
-import { ContactPayload, Media } from 'kozz-types';
-import context from '../Context';
-import { downloadBuffer } from 'src/util/downloadBuffer';
-import { convertJpegToWebp, convertMP4ToWebp } from 'src/MediaConverter';
-import { getMessage } from 'src/Store/MessageStore';
-import { generateHash, getFormattedDateAndTime } from 'src/util/utility';
+import { ContactPayload, Media, SendMessagePayload } from 'kozz-types';
+import context from '../Context/index.js';
+import { downloadBuffer } from 'src/util/downloadBuffer.js';
+import { convertJpegToWebp, convertMP4ToWebp } from 'src/MediaConverter/index.js';
+import { getMessage } from 'src/Store/MessageStore.js';
+import { generateHash, getFormattedDateAndTime } from 'src/util/utility.js';
 import {
 	CompanionObject,
 	InlineCommandMap,
-} from 'kozz-boundary-maker/dist/InlineCommand';
-import { getGroupChat } from 'src/Store/ChatStore';
-const webp = require('node-webpmux'); // import has type error.
+	StyleVariant,
+} from 'kozz-boundary-maker/dist/InlineCommand/index.js';
+import { getGroupChat } from 'src/Store/ChatStore.js';
+// @ts-ignore
+import webp from 'node-webpmux'
 
 const database = context.get('database');
 
@@ -320,8 +322,8 @@ export const inlineCommandMapFunctions = (): InlineCommandMap => {
 
 		if (chatInfo) {
 			mentions = chatInfo.participants
-				.map(member => member.id)
-				.filter(member => !data.except.includes(member));
+				.map((member:any) => member.id)
+				.filter((member:any) => !data.except.includes(member));
 		}
 
 		return {
@@ -417,17 +419,16 @@ export const inlineCommandMapFunctions = (): InlineCommandMap => {
 	};
 
 	return {
-		mention,
-		invisiblemention,
-		tageveryone,
-		bold,
-		italic,
-		underscore,
-		stroke,
-		paragraph,
-		listitem,
-		monospace,
-	};
+	mention,
+	invisiblemention,
+	tageveryone,
+	begin_style: function (companion: CompanionObject, data: { variant: StyleVariant; }, payload: SendMessagePayload): Promise<{ companion: CompanionObject; stringValue: string; }> {
+		throw new Error('Function not implemented.');
+	},
+	end_style: function (companion: CompanionObject, data: { variant: StyleVariant; }, payload: SendMessagePayload): Promise<{ companion: CompanionObject; stringValue: string; }> {
+		throw new Error('Function not implemented.');
+	}
+};
 };
 
 export default baileysFunctions;

@@ -1,11 +1,10 @@
 import { WAMessage, WASocket, proto } from 'baileys';
 import { ContactPayload, GroupChat, MessageReceived } from 'kozz-types';
-import Context from 'src/Context';
-import { getContact } from 'src/Store/ContactStore';
-import { getMessage, saveEditedMessage, saveMessage } from 'src/Store/MessageStore';
-import { GroupChatModel } from 'src/Store/models';
-import { downloadMediaFromMessage } from 'src/util/media';
-import { clearContact, replaceTaggedName } from 'src/util/utility';
+import Context from 'src/Context/index.js';
+import { getContact } from 'src/Store/ContactStore.js';
+import { getMessage, saveEditedMessage, saveMessage } from 'src/Store/MessageStore.js';
+import { downloadMediaFromMessage } from 'src/util/media.js';
+import { clearContact, replaceTaggedName } from 'src/util/utility.js';
 
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
 	const { fromMe, remoteJid, id, participant } = messageKey;
