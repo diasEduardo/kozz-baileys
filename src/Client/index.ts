@@ -46,9 +46,9 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary.default>) 
 	const { state, saveCreds } = await useMultiFileAuthState('./creds');
 	console.log('Done');
 	let { version, isLatest } = await fetchLatestBaileysVersion();
-	version = [2, 3000, 1029030078];
-	version = [2, 3000, 1027934701];
-	isLatest = false;
+	//version = [2, 3000, 1029030078];
+	//version = [2, 3000, 1027934701];
+	//isLatest = false;
 	console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
 	 waSocket = makeWASocket({

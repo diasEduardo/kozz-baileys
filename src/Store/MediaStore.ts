@@ -42,8 +42,10 @@ export const getMedia = async (id: string): Promise<Media> => {
 	};
 };
 
+let isDeletingFromMidiaFolder = false;
 export const deleteFromMediaFolder = async () => {
-	if(process.env.MUST_DELETE_MIDIA == 'true'){
+	if(process.env.MUST_DELETE_MIDIA == 'true' && !isDeletingFromMidiaFolder){
+		isDeletingFromMidiaFolder = true;
 		const dayOffset = process.env.MIDIA_STORED_DAYS || 7;
 		const pugeDate = new Date();
 		pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
@@ -67,11 +69,13 @@ export const deleteFromMediaFolder = async () => {
 							id: midia.id,
 							deleted: true,
 						});
+						break;
 					}
 				}
 					
 			}
 		}
+		isDeletingFromMidiaFolder = false;
 	}
 }
 
