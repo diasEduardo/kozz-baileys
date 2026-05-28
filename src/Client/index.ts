@@ -28,6 +28,7 @@ import { updateChatMetadata } from 'src/Store/MetadataStore.js';
 import { getMessagePreview, timestampToHour } from 'src/util/utility.js';
 import { groupMemo } from 'src/util/groupMemo.js';
 import qrCode from 'qrcode';
+import { insertGroupParticipantUpdate } from 'src/Store/groupParticipantMetadata.js';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 export let waSocket:any;
@@ -235,8 +236,18 @@ const sessionEvents = (
 	});
 
 	waSocket.ev.on('group-participants.update', async (payload:any) => {
+
+		payload.participants?.forEach((participant:string) => {
+			insertGroupParticipantUpdate({
+				participantId: participant, 
+				groupId: payload.id, 
+				authorId: payload.author, 
+				action: payload.action
+			});	
+		});		
 		
 		const newPayload = 	await createGroupParticipantsUpdatePayload(payload);
+		
 		if(payload.action == 'add'){
 			// adicionado ao grupo
 			boundary.emitUserJoinedGroup(newPayload as any);

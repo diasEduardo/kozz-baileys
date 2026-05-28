@@ -269,7 +269,7 @@ export const createGroupParticipantsUpdatePayload = async (
 				  id: '120363382913527538@g.us',
 				  author: '555181953191@s.whatsapp.net',
 				  participants: [ '555181953191@s.whatsapp.net' ],
-				  action: 'remove' 
+				  action: 'remove' add, promote, demote
 				}
 			  }
 				*/
@@ -277,6 +277,7 @@ export const createGroupParticipantsUpdatePayload = async (
 	return {
 		from: payload.author || payload.id,
 		to: payload.id,
+		participants: payload.participants,
 		action:payload.action
 	}
 

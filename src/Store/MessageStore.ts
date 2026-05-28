@@ -4,6 +4,7 @@ import { getMedia, saveMedia } from './MediaStore.js';
 import { getContact, saveContact } from './ContactStore.js';
 import { MessageModel } from './models.js';
 import { proto } from 'baileys';
+import { updateGroupParticipantMetadata } from './groupParticipantMetadata.js';
 
 const database = Context.get('database');
 
@@ -20,6 +21,9 @@ export const saveMessage = async (
 		taggedContacts: JSON.stringify(message.taggedContacts),
 		originalMessagePayload: JSON.stringify(originalMessage),
 	});
+	if(message.to.includes('@g.us') && message.contact?.publicName) {
+		updateGroupParticipantMetadata(message.from, message.to, message.contact?.publicName || '');
+	}
 
 	return message.id;
 };

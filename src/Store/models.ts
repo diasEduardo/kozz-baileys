@@ -129,6 +129,241 @@ export const mediaSchema = {
 	},
 };
 
+export const credsSchema = {
+	name: 'creds',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		noiseKey: {
+			private: {
+				type: 'string',
+				data: 'string'
+			},
+			public: {
+				type: 'string',
+				data: 'string'
+			}
+		},
+		pairingEphemeralKeyPair: {
+			private: {
+				type: 'string',
+				data: 'string'
+			},
+			public: {
+				type: 'string',
+				data: 'string'
+			}
+		},
+		signedIdentityKey: {
+			private: {
+				type: 'string',
+				data: 'string'
+			},
+			public: {
+				type: 'string',
+				data: 'string'
+			}
+		},
+		signedPreKey: {
+			keyPair: {
+				private: {
+					type: 'string',
+					data: 'string'
+				},
+				public: {
+					type: 'string',
+					data: 'string'
+				}
+			},
+			signature: {
+				type: 'string',
+				data: 'string'
+			},
+			keyId: 'int'
+		},
+		registrationId: 'int',
+		advSecretKey: 'string',
+		processedHistoryMessages: 'any[]',
+		nextPreKeyId: 'int',
+		firstUnuploadedPreKeyId: 'int',
+		accountSyncCounter: 'int',
+		accountSettings: {
+			unarchiveChats: 'bool'
+		},
+		registered: 'bool',
+		account: {
+			details: 'string',
+			accountSignatureKey: 'string',
+			accountSignature: 'string',
+			deviceSignature: 'string'
+		},
+		me: {
+			id: 'string',
+			lid: 'string'
+		},
+		signalIdentities: [{
+			identifier: {
+				name: 'string',
+				deviceId: 'int'
+			},
+			identifierKey: {
+				type: 'string',
+				data: 'string'
+			}
+		}],
+		platform: 'string',
+		routingInfo: {
+			type: 'string',
+			data: 'string'
+		},
+		lastAccountSyncTimestamp: 'int',
+		lastPropHash: 'string',
+		myAppStateKeyId: 'string'
+	}
+};
+
+export type CredsModel = {
+	id: string,
+		noiseKey: {
+			private: {
+				type: string,
+				data: string
+			},
+			public: {
+				type: string,
+				data: string
+			}
+		},
+		pairingEphemeralKeyPair: {
+			private: {
+				type: string,
+				data: string
+			},
+			public: {
+				type: string,
+				data: string
+			}
+		},
+		signedIdentityKey: {
+			private: {
+				type: string,
+				data: string
+			},
+			public: {
+				type: string,
+				data: string
+			}
+		},
+		signedPreKey: {
+			keyPair: {
+				private: {
+					type: string,
+					data: string
+				},
+				public: {
+					type: string,
+					data: string
+				}
+			},
+			signature: {
+				type: string,
+				data: string
+			},
+			keyId: number
+		},
+		registrationId: number,
+		advSecretKey: string,
+		processedHistoryMessages: any[],
+		nextPreKeyId: number,
+		firstUnuploadedPreKeyId: number,
+		accountSyncCounter: number,
+		accountSettings: {
+			unarchiveChats: boolean
+		},
+		registered: boolean,
+		account: {
+			details: string,
+			accountSignatureKey: string,
+			accountSignature: string,
+			deviceSignature: string
+		},
+		me: {
+			id: string,
+			lid: string
+		},
+		signalIdentities: [{
+			identifier: {
+				name: string,
+				deviceId: number
+			},
+			identifierKey: {
+				type: string,
+				data: string
+			}
+		}],
+		platform: string,
+		routingInfo: {
+			type: string,
+			data: string
+		},
+		lastAccountSyncTimestamp: number,
+		lastPropHash: string,
+		myAppStateKeyId: string
+	} | any;
+
+	export type groupParticipantMetadata = 
+	{
+		id: string;
+		participantId: string;
+		participantName: string;
+		groupId: string;
+		date: string;
+		messageCount: number;
+	};
+
+export const groupParticipantMetadataSchema = {
+	name: 'groupParticipantMetadata',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		participantId: 'string',
+		participantName: 'string',
+		groupId: 'string',
+		date: 'string',
+		messageCount: 'int'
+	},
+};
+
+export type groupParticipantUpdate = 
+	{
+		id: string;
+		authorId: string;
+		authorName: string;
+		participantId: string;
+		participantName: string;
+		groupId: string;
+		groupName: string;
+		date: string;
+		action: string;
+	};
+
+
+export const groupParticipantUpdateSchema = {
+	name: 'groupParticipantUpdate',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		authorId: 'string',
+		authorName: 'string',
+		participantId: 'string',
+		participantName: 'string',
+		groupId: 'string',
+		groupName: 'string',
+		date: 'string',
+		action: 'string'
+	},
+};
+
 export type EntityMap = {
 	media: MediaModel;
 	message: MessageModel;
@@ -136,4 +371,7 @@ export type EntityMap = {
 	groupChat: GroupChatModel;
 	chatMetadata: ChatMetadata;
 	privateChat: PrivateChatModel;
+	creds : CredsModel;
+	groupParticipantMetadata: groupParticipantMetadata;
+	groupParticipantUpdate: groupParticipantUpdate;
 };
