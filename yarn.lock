@@ -1933,14 +1933,14 @@ klaw-sync@^6.0.0:
   dependencies:
     graceful-fs "^4.1.11"
 
-kozz-boundary-maker@^1.1.0:
-  version "1.1.0"
-  resolved "https://registry.npmjs.org/kozz-boundary-maker/-/kozz-boundary-maker-1.1.0.tgz"
-  integrity sha512-yQc0ZWGIacII4hGDgMXh16xRUWxSXie6Vt8LN91xtSaK/Otr5FO7Z+ZhubA3IxHuuAeMFhcIUfcBSbNIoULAIw==
+kozz-boundary-maker@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.npmjs.org/kozz-boundary-maker/-/kozz-boundary-maker-1.1.1.tgz"
+  integrity sha512-PujH4YUQ/pyBr+U1dMBqohL7lUj/fzKb9soQYg02hb2qSa/B1AYoflWA7v4V4i9xK5USZIuvLvNCs8+ZjFGtJQ==
   dependencies:
     "@guigalleta/t-parser" "^2.1.1"
     arcsecond "^5.0.0"
-    kozz-types "^0.2.0"
+    kozz-types "^0.2.1"
     socket.io-client "^4.8.1"
 
 kozz-types@^0.2.0, kozz-types@^0.2.1:
