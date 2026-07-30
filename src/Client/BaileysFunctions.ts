@@ -23,6 +23,8 @@ import {
 	InlineCommandMap,
 	StyleVariant,
 } from 'kozz-boundary-maker/dist/InlineCommand';
+import path from 'path';
+import { lottiePaths } from 'src/InstanceConfig';
 import { getGroupChat } from 'src/Store/ChatStore';
 import logger from 'src/util/logger';
 import sharp from 'sharp';
@@ -303,7 +305,7 @@ const baileysFunctions = (client: WaSocket) => {
 	};
 
 	const getKnownLottiePath = () => {
-		const lottieDir = './debug/lottie';
+		const lottieDir = lottiePaths.root;
 		if (!fs.existsSync(lottieDir)) {
 			return undefined;
 		}
@@ -313,8 +315,8 @@ const baileysFunctions = (client: WaSocket) => {
 			.filter(fileName => fileName.endsWith('.was'))
 			.map(fileName => ({
 				fileName,
-				fullPath: `${lottieDir}/${fileName}`,
-				mtimeMs: fs.statSync(`${lottieDir}/${fileName}`).mtimeMs,
+				fullPath: path.join(lottieDir, fileName),
+				mtimeMs: fs.statSync(path.join(lottieDir, fileName)).mtimeMs,
 			}))
 			.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
@@ -427,7 +429,7 @@ const baileysFunctions = (client: WaSocket) => {
 	const createGeneratedLottieWas = async (quotedSticker: Media, outputKey: string) => {
 		const validLottiePath = getKnownLottiePath();
 		if (!validLottiePath) {
-			throw new Error('No valid .was file available in ./debug/lottie');
+			throw new Error(`No valid .was file available in ${lottiePaths.root}`);
 		}
 
 		const quotedStickerPng = await getQuotedStickerPng(quotedSticker);
@@ -445,7 +447,7 @@ const baileysFunctions = (client: WaSocket) => {
 			compression: 'DEFLATE',
 		});
 
-		const outputPath = `./debug/lottie/generated/${outputKey}.was`;
+		const outputPath = path.join(lottiePaths.generated, `${outputKey}.was`);
 		fs.writeFileSync(outputPath, generatedBuffer);
 		return outputPath;
 	};
@@ -536,7 +538,7 @@ const baileysFunctions = (client: WaSocket) => {
 	const sendDebugLottie = async (receiverId: string, quotedMessageId?: string) => {
 		const lottiePath = getKnownLottiePath();
 		if (!lottiePath) {
-			console.warn('LOTTIE SEND DEBUG: no .was file available in ./debug/lottie');
+			console.warn(`LOTTIE SEND DEBUG: no .was file available in ${lottiePaths.root}`);
 			return undefined;
 		}
 

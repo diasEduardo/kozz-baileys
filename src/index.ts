@@ -7,18 +7,21 @@ import { createFolderOnInit } from './util/utility';
 import { createResourceGatheres } from './Resource';
 import { CronJob } from 'cron';
 import fs from 'fs/promises';
+import path from 'path';
 import { getQuotedMessageId } from './util/message';
 import { getMessage } from './Store/MessageStore';
+import { appPaths, boundaryName, describeInstance, namespace } from './InstanceConfig';
 
 export const boundary = createBoundary({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
 	chatPlatform: 'Baileys',
-	name: process.env.BOUNDARY_NAME || 'kozz-baileys',
-	namespace: process.env.KOZZ_NAMESPACE || process.env.NAMESPACE || 'default',
+	name: boundaryName,
+	namespace,
 	inlineCommandMap: inlineCommandMapFunctions(),
 });
 
 createFolderOnInit();
+console.log('Starting kozz-baileys instance', describeInstance());
 
 const unwrapMessageContainers = (message: any) => {
 	const wrapperCandidates = [
@@ -163,11 +166,12 @@ const getCommandQuotedPayload = (msg: any) => {
 };
 
 const deleteOldMedia = () => {
-	fs.readdir('./medias').then(files => {
+	fs.readdir(appPaths.mediaDir).then(files => {
 		files.forEach(file => {
-			fs.stat(`./medias/${file}`).then(stats => {
+			const filePath = path.join(appPaths.mediaDir, file);
+			fs.stat(filePath).then(stats => {
 				if (Date.now() - stats.birthtimeMs > 86400000) {
-					fs.unlink(`./medias/${file}`);
+					fs.unlink(filePath);
 				}
 			});
 		});

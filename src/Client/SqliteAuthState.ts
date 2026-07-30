@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
+import syncFs from 'fs';
 import path from 'path';
 import sqlite3 from 'sqlite3';
+import { appPaths } from 'src/InstanceConfig';
 import {
 	AuthenticationState,
 	BufferJSON,
@@ -15,13 +17,12 @@ type AuthRow = {
 
 type SqliteDatabase = sqlite3.Database;
 
-const DEFAULT_DB_PATH = './baileys-auth.sqlite';
-const DEFAULT_MULTI_FILE_AUTH_DIR = './creds';
-
 const fixFileName = (file: string) => file.replace(/\//g, '__').replace(/:/g, '-');
 
-const createDatabase = (dbPath: string) =>
-	new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
+const createDatabase = (dbPath: string) => {
+	syncFs.mkdirSync(path.dirname(dbPath), { recursive: true });
+	return new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE);
+};
 
 const run = (db: SqliteDatabase, sql: string, params: unknown[] = []) =>
 	new Promise<void>((resolve, reject) => {
@@ -164,8 +165,8 @@ const migrateMultiFileAuthState = async (
 };
 
 export const useSqliteAuthState = async (
-	dbPath = process.env.BAILEYS_AUTH_DB_PATH || DEFAULT_DB_PATH,
-	multiFileAuthDir = DEFAULT_MULTI_FILE_AUTH_DIR
+	dbPath = appPaths.authDbPath,
+	multiFileAuthDir = appPaths.credsDir
 ): Promise<{
 	state: AuthenticationState;
 	saveCreds: () => Promise<void>;

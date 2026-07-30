@@ -1,9 +1,11 @@
 import fs from 'fs';
+import path from 'path';
 import zlib from 'zlib';
 import { downloadContentFromMessage, downloadMediaMessage, WAMessage } from 'baileys';
 import { Media } from 'kozz-types';
 import { WaSocket } from 'src/Client';
 import logger from './logger';
+import { lottiePaths } from 'src/InstanceConfig';
 
 const messageMediaTypes = [
 	'videoMessage',
@@ -79,7 +81,7 @@ const getLottieDebugInfo = (mediaBuffer: Buffer) => {
 
 const dumpLottieStickerDebug = (messageEv: WAMessage, mediaBuffer: Buffer) => {
 	const messageId = messageEv.key.id || `unknown_${Date.now()}`;
-	const basePath = `./debug/lottie/${messageId}`;
+	const basePath = path.join(lottiePaths.root, messageId);
 	const info = getLottieDebugInfo(mediaBuffer);
 	const rawPath = `${basePath}.was`;
 

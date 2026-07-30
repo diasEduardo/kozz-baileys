@@ -1,4 +1,7 @@
 import Realm from 'realm';
+import fs from 'fs';
+import path from 'path';
+import { appPaths } from 'src/InstanceConfig';
 import {
 	contactSchema,
 	EntityMap,
@@ -11,7 +14,10 @@ import {
 } from './models';
 
 export const initDatabase = () => {
+	fs.mkdirSync(path.dirname(appPaths.realmPath), { recursive: true });
+
 	const config = {
+		path: appPaths.realmPath,
 		schema: [
 			contactSchema,
 			mediaSchema,

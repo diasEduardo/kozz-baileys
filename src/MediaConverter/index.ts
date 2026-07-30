@@ -1,10 +1,9 @@
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs/promises';
-import { resolve } from 'path';
-
-const inTempMediaPath = './medias/tempFile';
-const outTempMediaPath = './medias/tempFile';
+import path from 'path';
+import { randomUUID } from 'crypto';
+import { appPaths } from 'src/InstanceConfig';
 
 export const getTransparentBackground = async (width: number, height: number) => {
 	try {
@@ -60,8 +59,9 @@ export const convertMP4ToWebp = async (
 	base64: string
 ): Promise<Buffer | undefined> => {
 	try {
-		const inFilePath = `${inTempMediaPath}.mp4`;
-		const outFilePath = `${outTempMediaPath}.webp`;
+		const tempId = `temp-${randomUUID()}`;
+		const inFilePath = path.join(appPaths.mediaDir, `${tempId}.mp4`);
+		const outFilePath = path.join(appPaths.mediaDir, `${tempId}.webp`);
 
 		await fs.writeFile(inFilePath, base64, {
 			encoding: 'base64url',
@@ -87,9 +87,19 @@ export const convertMP4ToWebp = async (
 				])
 				.on('end', async () => {
 					const out = await fs.readFile(outFilePath);
+					await Promise.all([
+						fs.unlink(inFilePath).catch(() => undefined),
+						fs.unlink(outFilePath).catch(() => undefined),
+					]);
 					resolve(out);
 				})
-				.on('error', () => resolve(undefined));
+				.on('error', async () => {
+					await Promise.all([
+						fs.unlink(inFilePath).catch(() => undefined),
+						fs.unlink(outFilePath).catch(() => undefined),
+					]);
+					resolve(undefined);
+				});
 		});
 	} catch (e) {
 		console.warn(e);

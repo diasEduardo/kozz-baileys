@@ -1,16 +1,19 @@
 import fs from 'fs';
 import { ContactPayload, MessageReceived } from 'kozz-types';
+import { appPaths, lottiePaths } from 'src/InstanceConfig';
 
 export const createFolderOnInit = () => {
-	tryCreateFolder(`./medias`);
-	tryCreateFolder(`./debug`);
-	tryCreateFolder(`./debug/lottie`);
-	tryCreateFolder(`./debug/lottie/generated`);
+	tryCreateFolder(appPaths.instanceRoot);
+	tryCreateFolder(appPaths.credsDir);
+	tryCreateFolder(appPaths.mediaDir);
+	tryCreateFolder(appPaths.debugDir);
+	tryCreateFolder(lottiePaths.root);
+	tryCreateFolder(lottiePaths.generated);
 };
 
 const tryCreateFolder = (path: string) => {
 	try {
-		fs.mkdirSync(path);
+		fs.mkdirSync(path, { recursive: true });
 	} catch {}
 };
 
@@ -44,7 +47,7 @@ export const getMyContactFromCredentials = (creds?: {
 		| undefined = creds;
 
 	if (!jsonCred) {
-		const credFile = fs.readFileSync('./creds/creds.json');
+		const credFile = fs.readFileSync(`${appPaths.credsDir}/creds.json`);
 		jsonCred = JSON.parse(credFile.toString());
 	}
 

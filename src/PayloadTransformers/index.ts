@@ -11,6 +11,7 @@ import { getMessage, saveMessage } from 'src/Store/MessageStore';
 import { GroupChatModel } from 'src/Store/models';
 import { downloadMediaFromMessage } from 'src/util/media';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
+import { boundaryName } from 'src/InstanceConfig';
 
 type LidAwareMessageKey = proto.IMessageKey & {
 	senderLid?: string | null;
@@ -336,7 +337,7 @@ export const createMessagePayload = async (
 
 	return {
 		body: messageBody,
-		boundaryName: process.env.BOUNDARY_NAME ?? '',
+		boundaryName,
 		id,
 		contact: await createContactPayload(message, waSocket),
 		from: contact.id,

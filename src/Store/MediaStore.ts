@@ -3,12 +3,14 @@ import { randomUUID } from 'crypto';
 import Context from 'src/Context';
 import fs from 'fs/promises';
 import mime from 'mime-types';
+import path from 'path';
+import { appPaths } from 'src/InstanceConfig';
 
 const database = Context.get('database');
 
 export const saveMedia = async (media: Media): Promise<string> => {
 	const mediaId = `${randomUUID()}.${mime.extension(media.mimeType)}`;
-	const filePath = `./medias/${mediaId}`;
+	const filePath = path.join(appPaths.mediaDir, mediaId);
 
 	await fs.writeFile(filePath, media.data, {
 		encoding: 'base64url',
@@ -25,7 +27,7 @@ export const saveMedia = async (media: Media): Promise<string> => {
 };
 
 export const getMedia = async (id: string): Promise<Media> => {
-	const file = await fs.readFile(`./medias/${id}`, {
+	const file = await fs.readFile(path.join(appPaths.mediaDir, id), {
 		encoding: 'base64url',
 	});
 
