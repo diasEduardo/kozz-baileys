@@ -189,8 +189,25 @@ initSession(boundary).then(waSocket => {
 	});
 
 	boundary.handleReplyWithText((payload, companion, body) => {
+		if (!payload?.chatId || !payload?.quoteId) {
+			console.warn('[reply_with_text] Invalid payload', payload);
+			return;
+		}
+
 		baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions);
 	});
+
+	boundary.kozzSocket.on(
+		'iwac_reply_text',
+		(payload: { chatId?: string; body?: string; quoteId?: string }) => {
+			if (!payload?.chatId || !payload?.body || !payload?.quoteId) {
+				console.warn('[iwac_reply_text] Invalid payload', payload);
+				return;
+			}
+
+			baileys.sendText(payload.chatId, payload.body, payload.quoteId);
+		}
+	);
 
 	boundary.handleReplyWithSticker(async (payload, companion, caption) => {
 		baileys.sendMedia(

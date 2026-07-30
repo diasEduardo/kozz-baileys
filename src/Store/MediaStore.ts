@@ -12,9 +12,7 @@ export const saveMedia = async (media: Media): Promise<string> => {
 	const mediaId = `${randomUUID()}.${mime.extension(media.mimeType)}`;
 	const filePath = path.join(appPaths.mediaDir, mediaId);
 
-	await fs.writeFile(filePath, media.data, {
-		encoding: 'base64url',
-	});
+	await fs.writeFile(filePath, Buffer.from(media.data, 'base64'));
 
 	await database.upsert('media', {
 		id: mediaId,
@@ -27,15 +25,14 @@ export const saveMedia = async (media: Media): Promise<string> => {
 };
 
 export const getMedia = async (id: string): Promise<Media> => {
-	const file = await fs.readFile(path.join(appPaths.mediaDir, id), {
-		encoding: 'base64url',
-	});
+	const file = await fs.readFile(path.join(appPaths.mediaDir, id));
+	const media = database.getById('media', id);
 
 	return {
-		data: file,
+		data: file.toString('base64'),
 		fileName: id,
-		mimeType: mime.lookup(id.split('.')[1]) || 'octect/stream',
-		sizeInBytes: file.length,
+		mimeType: media?.mimeType || mime.lookup(id.split('.').pop() || '') || 'octet/stream',
+		sizeInBytes: file.byteLength,
 		stickerTags: [],
 		transportType: 'b64',
 		duration: null,

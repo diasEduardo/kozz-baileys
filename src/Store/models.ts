@@ -6,6 +6,7 @@ export type ChatMetadata = {
 	lastMessageTimestamp: number;
 	unreadCount: number;
 	lastMessagePreview: string;
+	pinnedMessageId?: string | null;
 };
 
 export const chatMetadataModel = {
@@ -16,6 +17,7 @@ export const chatMetadataModel = {
 		lastMessageTimestamp: 'int?',
 		unreadCount: 'int?',
 		lastMessagePreview: 'string?',
+		pinnedMessageId: 'string?',
 	},
 };
 

@@ -12,6 +12,15 @@ export const getChatOrder = (limit = 0) => {
 	}
 };
 
+export const getChatMetadata = (id: string) => {
+	try {
+		return database.getById('chatMetadata', id);
+	} catch (e) {
+		console.warn(`Error while trying to get chat metadata ${id}, [Error ${e}]`);
+		return undefined;
+	}
+};
+
 export const updateChatMetadata = (
 	values: Partial<ChatMetadata> & {
 		id: string;

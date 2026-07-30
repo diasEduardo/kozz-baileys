@@ -1,7 +1,8 @@
 import { GroupChat, PrivateChatSummary } from 'kozz-types';
 import Context from 'src/Context';
 import { ContactModel, GroupChatModel, PrivateChatModel } from './models';
-import { getContact } from './ContactStore';
+import { getContact, resolveJidFromLid, resolveLidFromJid } from './ContactStore';
+import { isGroupLikeChatId, isStatusBroadcast } from 'src/util/chat';
 
 const database = Context.get('database');
 
@@ -46,6 +47,20 @@ export const getGroupChat = async (
 	  })
 	| null
 > => {
+	if (isStatusBroadcast(id)) {
+		return {
+			id,
+			name: 'Status',
+			owner: 'NOT_FOUND',
+			description: '',
+			memberCount: 0,
+			community: null,
+			participants: [],
+			unreadCount: 0,
+			lastFetched: Date.now(),
+		};
+	}
+
 	const groupChat = (await database.getById(
 		'groupChat',
 		id
@@ -91,15 +106,34 @@ export const getChatDetails = async (id: string) => {
 		if (!id) {
 			return 0;
 		}
-		if (id.includes('@g.us')) {
+		if (isGroupLikeChatId(id)) {
 			return {
 				type: 'group',
-				data: database.getById('groupChat', id),
+				data: isStatusBroadcast(id)
+					? {
+							id,
+							name: 'Status',
+							participants: [],
+						}
+					: database.getById('groupChat', id),
 			};
 		} else {
+			const contact =
+				(database.getById('contact', id) as ContactModel | null) ||
+				(id.endsWith('@lid')
+					? await getContact((await resolveJidFromLid(id)) ?? '')
+					: null) ||
+				(id.endsWith('@s.whatsapp.net')
+					? await getContact((await resolveLidFromJid(id)) ?? '')
+					: null) ||
+				(database.getValues(
+					'contact',
+					(contact: ContactModel) => contact.lid === id
+				)?.[0] as ContactModel | undefined);
+
 			return {
 				type: 'private',
-				data: database.getById('contact', id),
+				data: contact,
 			};
 		}
 	} catch (e) {

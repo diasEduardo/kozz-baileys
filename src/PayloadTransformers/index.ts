@@ -3,6 +3,7 @@ import { ContactPayload, GroupChat, MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import {
 	getContact,
+	getContactByLid,
 	resolveLidFromJid,
 	resolveJidFromLid,
 	saveLidMappings,
@@ -10,6 +11,7 @@ import {
 import { getMessage, saveMessage } from 'src/Store/MessageStore';
 import { GroupChatModel } from 'src/Store/models';
 import { downloadMediaFromMessage } from 'src/util/media';
+import { isGroupLikeChatId } from 'src/util/chat';
 import { clearContact, replaceTaggedName } from 'src/util/utility';
 import { boundaryName } from 'src/InstanceConfig';
 
@@ -136,7 +138,7 @@ export const createContactPayload = async (
 		isHostAccount,
 		isBlocked,
 		publicName: message.pushName || '',
-		isGroup: message.key.participant ? true : false,
+			isGroup: isGroupLikeChatId(message.key.remoteJid) || !!message.key.participant,
 		privateName: '',
 	};
 };
@@ -154,7 +156,7 @@ export const createContactFromSync = async (contact: {
 		isHostAccount: hostData.id === contact.id,
 		isBlocked,
 		publicName: contact.name || 'no_name',
-		isGroup: contact.id.includes('@g.us'),
+			isGroup: isGroupLikeChatId(contact.id),
 		privateName: '',
 	};
 };
@@ -168,7 +170,14 @@ export const createtTaggedContactPayload = async (
 		for (const contactId of message.message?.extendedTextMessage?.contextInfo
 			?.mentionedJid) {
 			const normalizedContactId = clearContact(contactId);
-			const contact = await getContact(normalizedContactId);
+			const contact =
+				(await getContact(normalizedContactId)) ||
+				(normalizedContactId.endsWith('@lid')
+					? await getContactByLid(normalizedContactId)
+					: null) ||
+				(normalizedContactId.endsWith('@s.whatsapp.net')
+					? await getContactByLid((await resolveLidFromJid(normalizedContactId)) ?? '')
+					: null);
 			if (contact) {
 				contacts.push(contact);
 			} else if (hostAliases.has(normalizedContactId)) {
@@ -238,6 +247,89 @@ const normalizeMessageTimestamp = (messageTimestamp: WAMessage['messageTimestamp
 	return numericTimestamp < 1e12 ? numericTimestamp * 1000 : numericTimestamp;
 };
 
+const getMessageContent = (message: WAMessage) =>
+	message.message?.ephemeralMessage?.message ||
+	message.message?.viewOnceMessageV2?.message ||
+	message.message?.viewOnceMessageV2Extension?.message ||
+	message.message?.documentWithCaptionMessage?.message ||
+	message.message?.lottieStickerMessage?.message ||
+	message.message;
+
+export const getPinInChatMessage = (message: WAMessage) =>
+	getMessageContent(message)?.pinInChatMessage;
+
+export const getPollUpdateMessage = (message: WAMessage) =>
+	getMessageContent(message)?.pollUpdateMessage;
+
+const getRawMessageType = (message: WAMessage) => {
+	const content = getMessageContent(message);
+	if (!content) return 'unknown';
+
+	return (
+		Object.keys(content).find(key => key !== 'messageContextInfo') ||
+		'messageContextInfo'
+	);
+};
+
+const getMessageBody = (message: WAMessage) => {
+	const content = getMessageContent(message);
+	const pollCreationMessage =
+		content?.pollCreationMessage ||
+		content?.pollCreationMessageV2 ||
+		content?.pollCreationMessageV3;
+
+	if (pollCreationMessage) {
+		const options = pollCreationMessage.options
+			?.map(option => option.optionName)
+			.filter(Boolean)
+			.map(optionName => `- ${optionName}`)
+			.join('\n');
+
+		return ['Enquete', pollCreationMessage.name, options].filter(Boolean).join('\n');
+	}
+
+	return (
+		content?.conversation ||
+		content?.extendedTextMessage?.text ||
+		content?.imageMessage?.caption ||
+		content?.videoMessage?.caption ||
+		''
+	);
+};
+
+const getPayloadMessageType = (
+	message: WAMessage
+): MessageReceived['messageType'] => {
+	const content = getMessageContent(message);
+
+	if (content?.conversation || content?.extendedTextMessage) return 'TEXT';
+	if (content?.audioMessage) return 'AUDIO';
+	if (content?.stickerMessage) return 'STICKER';
+	if (content?.videoMessage) return 'VIDEO';
+	if (content?.imageMessage) return 'IMAGE';
+	if (
+		content?.pollCreationMessage ||
+		content?.pollCreationMessageV2 ||
+		content?.pollCreationMessageV3
+	) {
+		return 'TEXT';
+	}
+
+	return 'OTHER';
+};
+
+const getMessageContextInfo = (message: WAMessage) => {
+	const content = getMessageContent(message);
+
+	return (
+		content?.extendedTextMessage ||
+		content?.audioMessage ||
+		content?.stickerMessage ||
+		content?.videoMessage ||
+		content?.imageMessage
+	)?.contextInfo;
+};
+
 export const createMessagePayload = async (
 	message: WAMessage,
 	waSocket: WASocket
@@ -248,38 +340,18 @@ export const createMessagePayload = async (
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message, waSocket);
 	const taggedContact = await createtTaggedContactPayload(message);
+	const rawMessageType = getRawMessageType(message);
+	const messageType = getPayloadMessageType(message);
 
 	const messageBody =
-		message.message?.conversation ||
-		message.message?.extendedTextMessage?.text ||
-		message?.message?.imageMessage?.caption ||
-		message?.message?.videoMessage?.caption ||
-		message?.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
-		'';
+		getMessageBody(message) ||
+		(messageType === 'OTHER' ? `Mensagem sem renderizador: ${rawMessageType}` : '');
 
 	let taggedConctactFriendlyBody = messageBody;
 	if (taggedContact.length) {
 		taggedConctactFriendlyBody = replaceTaggedName(messageBody, taggedContact);
 	}
-	const messageType = message.message?.extendedTextMessage
-		? 'TEXT'
-		: message.message?.audioMessage
-			? 'AUDIO'
-			: message.message?.stickerMessage
-				? 'STICKER'
-				: message.message?.videoMessage
-					? 'VIDEO'
-					: message.message?.imageMessage
-						? 'IMAGE'
-						: 'TEXT';
-
-	const contextInfo = (
-		message.message?.extendedTextMessage ||
-		message.message?.audioMessage ||
-		message.message?.stickerMessage ||
-		message.message?.videoMessage ||
-		message.message?.imageMessage
-	)?.contextInfo!;
+	const contextInfo = getMessageContextInfo(message);
 
 	const id = message.key.id!;
 	const quotedMessageId = contextInfo?.stanzaId!;
@@ -316,7 +388,7 @@ export const createMessagePayload = async (
 							? 'VIDEO'
 							: contextInfo?.quotedMessage?.imageMessage
 								? 'IMAGE'
-								: 'TEXT';
+								: 'OTHER';
 
 			quotedMessage.isViewOnce =
 				(
@@ -344,9 +416,7 @@ export const createMessagePayload = async (
 		fromHostAccount: contact.isHostAccount,
 		isViewOnce: false,
 		to: message.key.remoteJid!,
-		chatId: message.key.remoteJid!.includes('@g.us')
-			? message.key.remoteJid!
-			: contact.id,
+		chatId: message.key.remoteJid!,
 		messageType: messageType,
 		platform: 'Baileys',
 		quotedMessage: quotedMessage || undefined,
@@ -370,8 +440,8 @@ export const createGroupChatPayload = (
 		id: ogChatPayload.id,
 		community: ogChatPayload.linkedParent ?? null,
 		description: ogChatPayload.desc ?? '',
-		memberCount: ogChatPayload.size!,
-		name: ogChatPayload.subject,
+		memberCount: ogChatPayload.size ?? 0,
+		name: ogChatPayload.subject ?? 'Status',
 		owner:
 			ogChatPayload.owner ??
 			ogChatPayload.participants?.find(

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import NodeCache from 'node-cache';
 
 dotenv.config({
 	path: '.env',
@@ -9,28 +10,34 @@ import makeWASocket, {
 	DisconnectReason,
 	fetchLatestBaileysVersion,
 	makeCacheableSignalKeyStore,
+	proto,
 } from 'baileys';
 import log from 'baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
 import {
+	getUnreadCount,
 	saveGroupChat,
 	savePrivateChat,
 	updateChatUnreadCount,
 } from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
-import { saveMessage } from 'src/Store/MessageStore';
+import { getMessage, getOriginalWaMessage, saveMessage } from 'src/Store/MessageStore';
 import {
+	createContactPayload,
 	createContactFromSync,
 	createGroupChatPayload,
 	createMessagePayload,
+	getPinInChatMessage,
+	getPollUpdateMessage,
 	saveLidMappingsFromMessage,
+	stringifyMessageId,
 } from 'src/PayloadTransformers';
 import createBoundary from 'kozz-boundary-maker';
 import { saveContact, saveLidMapping, saveLidMappings } from 'src/Store/ContactStore';
 import { updateChatMetadata } from 'src/Store/MetadataStore';
 import { getMessagePreview } from 'src/util/utility';
 import { groupMemo } from 'src/util/groupMemo';
-import qrCode from 'qrcode';
+import { isGroupChatId, isGroupLikeChatId } from 'src/util/chat';
 import { useSqliteAuthState } from './SqliteAuthState';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
@@ -38,13 +45,26 @@ export type WaSocket = ReturnType<typeof makeWASocket>;
 console.clear();
 console.log('Initializing DB...');
 
+let activeSocket: WaSocket | null = null;
+let reconnecting = false;
+const msgRetryCounterCache = new NodeCache({
+	stdTTL: 60 * 60,
+	useClones: false,
+});
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const initSession = (boundary: ReturnType<typeof createBoundary>) => {
 	return startSocket(boundary);
 };
 
 const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
+	if (activeSocket) {
+		return activeSocket;
+	}
+
 	const logger = log.child({});
-	logger.level = 'error';
+	logger.level = process.env.BAILEYS_LOG_LEVEL || 'fatal';
 
 	console.log('Creating auth...');
 	const { state, saveCreds } = await useSqliteAuthState();
@@ -62,6 +82,10 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 			keys: makeCacheableSignalKeyStore(state.keys, logger),
 		},
 		generateHighQualityLinkPreview: true,
+		msgRetryCounterCache,
+		maxMsgRetryCount: 5,
+		retryRequestDelayMs: 1000,
+		getMessage: getRetryMessage,
 		// syncFullHistory: true,
 		logger,
 		browser: Browsers.ubuntu('Desktop'),
@@ -69,10 +93,67 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	Context.upsert({
 		hostData: setMeFromCreds(state.creds),
 	});
+	activeSocket = waSocket;
 	sessionEvents(waSocket, saveCreds, boundary);
 
 	return waSocket;
 };
+
+const clearActiveSocket = (waSocket: WaSocket) => {
+	if (activeSocket !== waSocket) {
+		return;
+	}
+
+	waSocket.ev.removeAllListeners('creds.update');
+	waSocket.ev.removeAllListeners('connection.update');
+	waSocket.ev.removeAllListeners('messaging-history.set');
+	waSocket.ev.removeAllListeners('messages.upsert');
+	(waSocket.ev as any).removeAllListeners('lid-mapping.update');
+	(waSocket.ev as any).removeAllListeners('chats.phoneNumberShare');
+	activeSocket = null;
+};
+
+const reconnectSocket = async (
+	waSocket: WaSocket,
+	boundary: ReturnType<typeof createBoundary>
+) => {
+	if (reconnecting || activeSocket !== waSocket) {
+		return;
+	}
+
+	reconnecting = true;
+	clearActiveSocket(waSocket);
+
+	try {
+		await wait(1500);
+		await startSocket(boundary);
+	} finally {
+		reconnecting = false;
+	}
+};
+
+const isUndecryptableMessage = (message: any) =>
+	!message.message ||
+	message.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT;
+
+const getRetryMessage = async (key: proto.IMessageKey) => {
+	const candidateIds = [stringifyMessageId(key), key.id].filter(
+		(id): id is string => !!id
+	);
+
+	for (const messageId of candidateIds) {
+		const storedMessage = await getOriginalWaMessage(messageId);
+		if (storedMessage?.message) {
+			return storedMessage.message;
+		}
+	}
+
+	return undefined;
+};
+
+const getReactionMessage = (message: any) =>
+	message.message?.reactionMessage ||
+	message.message?.ephemeralMessage?.message?.reactionMessage;
 
 export const getGroupData = async (
 	id: string,
@@ -98,21 +179,18 @@ const sessionEvents = (
 			console.log('CONNECTION UPDATED =>', update);
 
 			if (update.qr) {
-				boundary.emitForwardableEvent('kozz-iwac', 'qr_code');
+				boundary.emitForwardableEvent('qr_code', update.qr);
 				Context.upsert({
 					qr: update.qr,
 				});
-
-				console.log(
-					qrCode.toString(update.qr, { type: 'terminal' }).then(console.log)
-				);
 			}
 
 			const { connection, lastDisconnect } = update;
 
 			if (connection === 'open' || update.isOnline) {
 				console.log('Connected');
-				boundary.emitForwardableEvent('kozz-iwac', 'chat_ready');
+				reconnecting = false;
+				boundary.emitForwardableEvent('chat_ready', undefined);
 				Context.upsert({
 					ready: true,
 					qr: null,
@@ -123,14 +201,19 @@ const sessionEvents = (
 				(lastDisconnect?.error as Boom)?.output?.statusCode ===
 				DisconnectReason.loggedOut;
 
+			if (connection === 'close' && loggedOut) {
+				clearActiveSocket(waSocket);
+				return;
+			}
+
 			if (connection === 'close' && !loggedOut) {
 				Context.upsert({
 					ready: false,
 					qr: null,
 				});
 
-				boundary.emitForwardableEvent('kozz-iwac', 'reconnecting');
-				startSocket(boundary);
+				boundary.emitForwardableEvent('reconnecting', undefined);
+				reconnectSocket(waSocket, boundary);
 			}
 		} catch (e) {
 			console.warn(e);
@@ -144,6 +227,10 @@ const sessionEvents = (
 			}
 
 			payload.messages.forEach(async (msg: any) => {
+				if (isUndecryptableMessage(msg)) {
+					return;
+				}
+
 				await saveLidMappingsFromMessage(msg);
 				const payload = await createMessagePayload(msg, waSocket);
 				await saveMessage(payload, msg);
@@ -154,10 +241,16 @@ const sessionEvents = (
 				await saveContact(payload);
 
 				if (payload.isGroup) {
-					const groupData = getGroupData(payload.id, waSocket);
-					// if (!groupData) {
-					// 	return;
-					// }
+					if (!isGroupChatId(payload.id)) {
+						await saveGroupChat(createGroupChatPayload({ id: payload.id }));
+						return;
+					}
+
+					const groupData = await getGroupData(payload.id, waSocket);
+					if (!groupData) {
+						return;
+					}
+
 					await saveGroupChat(createGroupChatPayload(groupData));
 				}
 			});
@@ -202,6 +295,10 @@ const sessionEvents = (
 
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
 		for (const msg of upsert.messages) {
+			if (isUndecryptableMessage(msg)) {
+				continue;
+			}
+
 			console.log(`processando mensagem ${msg.key.id}`);
 			await saveLidMappingsFromMessage(msg);
 			if (msg.message?.stickerMessage) {
@@ -209,29 +306,99 @@ const sessionEvents = (
 			}
 
 			try {
+				const pinInChatMessage = getPinInChatMessage(msg);
+				if (pinInChatMessage) {
+					const chatId = pinInChatMessage.key?.remoteJid || msg.key.remoteJid;
+					const pinnedMessageId = pinInChatMessage.key?.id ?? null;
+					const isUnpin =
+						pinInChatMessage.type ===
+						proto.Message.PinInChatMessage.Type.UNPIN_FOR_ALL;
+					const pinnedMessage =
+						!isUnpin && pinnedMessageId
+							? await getMessage(pinnedMessageId)
+							: null;
+
+					if (chatId) {
+						updateChatMetadata({
+							id: chatId,
+							pinnedMessageId: isUnpin ? null : pinnedMessageId,
+						});
+
+						boundary.emitForwardableEvent('chat_pinned_message', {
+							chatId,
+							messageId: isUnpin ? null : pinnedMessageId,
+							message: pinnedMessage,
+						});
+					}
+
+					continue;
+				}
+
+				const pollUpdateMessage = getPollUpdateMessage(msg);
+				if (pollUpdateMessage) {
+					continue;
+				}
+
+				const reactionMessage = getReactionMessage(msg);
+				if (reactionMessage) {
+					const contact = await createContactPayload(msg, waSocket);
+					boundary.emitForwardableEvent('chat_message_reaction', {
+						chatId: reactionMessage.key?.remoteJid || msg.key.remoteJid,
+						messageId: reactionMessage.key?.id,
+						emoji: reactionMessage.text || '',
+						from: contact.id,
+						fromHostAccount: contact.isHostAccount,
+						timestamp: Date.now(),
+						contact,
+					});
+					continue;
+				}
+
 				const payload = await createMessagePayload(msg, waSocket);
 
 				if (payload.contact.isBlocked) {
 					return;
 				}
 
-				if (payload.chatId.includes('@g.us')) {
-					const chatMetadata = await getGroupData(payload.chatId, waSocket);
-					await saveGroupChat(createGroupChatPayload(chatMetadata));
-				} else {
-					savePrivateChat({ id: payload.chatId });
+				if (isGroupLikeChatId(payload.chatId)) {
+					if (!isGroupChatId(payload.chatId)) {
+						await saveGroupChat(createGroupChatPayload({ id: payload.chatId }));
+					}
 				}
+
+					if (isGroupChatId(payload.chatId)) {
+						const chatMetadata = await getGroupData(payload.chatId, waSocket);
+						if (chatMetadata) {
+							await saveGroupChat(createGroupChatPayload(chatMetadata));
+						}
+					} else if (!isGroupLikeChatId(payload.chatId)) {
+						savePrivateChat({ id: payload.chatId });
+					}
 
 				await saveMessage(payload, msg);
 				boundary.emitMessage(payload);
+				boundary.emitForwardableEvent('chat_message_received', payload);
+
+				const lastMessagePreview = getMessagePreview(payload);
+				const lastMessageTimestamp = new Date().getTime();
 
 				updateChatMetadata({
 					id: payload.chatId,
-					lastMessagePreview: getMessagePreview(payload),
-					lastMessageTimestamp: new Date().getTime(),
+					lastMessagePreview,
+					lastMessageTimestamp,
 				});
 
 				boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
+				if (!payload.fromHostAccount) {
+					const unreadCount = (await getUnreadCount(payload.chatId)) + 1;
+					await updateChatUnreadCount(payload.chatId, unreadCount);
+					boundary.emitForwardableEvent('chat_unread_increment', {
+						chatId: payload.chatId,
+						unreadCount,
+						lastMessagePreview,
+						lastMessageTimestamp,
+					});
+				}
 			} catch (e) {
 				console.warn(e);
 			}

@@ -27,7 +27,7 @@ export const initDatabase = () => {
 			privateChatSchema,
 			lidMappingSchema,
 		],
-		schemaVersion: 1,
+		schemaVersion: 2,
 	};
 
 	const instance = new Realm(config);

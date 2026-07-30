@@ -240,12 +240,24 @@ const baileysFunctions = (client: WaSocket) => {
 		});
 	};
 
-	const getProfilePic = async (contactId: string) => {
+	const getProfilePic = async (
+		contactId: string,
+		type: 'preview' | 'image' = 'preview'
+	) => {
 		try {
-			const profilePic = await client.profilePictureUrl(contactId, 'image');
+			const profilePic = await client.profilePictureUrl(contactId, type, 10000);
 			return profilePic;
 		} catch (e) {
-			console.warn(e);
+			const message = e instanceof Error ? e.message : String(e);
+
+			if (
+				message.includes('rate-overlimit') ||
+				message.includes('Connection Closed')
+			) {
+				return undefined;
+			}
+
+			console.warn(`[ProfilePic] Unable to fetch profile picture for ${contactId}: ${message}`);
 			return undefined;
 		}
 	};

@@ -7,6 +7,7 @@ import {
 	getChatDetails,
 	getGroupChat,
 	getUnreadCount,
+	updateChatUnreadCount,
 } from 'src/Store/ChatStore';
 import {
 	getContact,
@@ -15,21 +16,62 @@ import {
 } from 'src/Store/ContactStore';
 import {
 	getMessageCountByContact,
+	getMessage,
 	getRecentChatMessages,
 	getRecentChatMessagesWithMedia,
+	getRecentStatusMessagesWithMedia,
+	getStatusContactSummaries,
 } from 'src/Store/MessageStore';
-import { getChatOrder } from 'src/Store/MetadataStore';
+import { getChatMetadata, getChatOrder } from 'src/Store/MetadataStore';
+import { isGroupChatId, isGroupLikeChatId } from 'src/util/chat';
 
 export const createResourceGatheres = (
 	boundary: ReturnType<typeof initBoundary>,
 	baileys: ReturnType<typeof baileysFunctions>
 ) => {
-	const _getProfilePicUrl = async ({ id }: { id: string }) => {
+	const onAskResource = (
+		resourceName: string,
+		getterFn: (data: any) => unknown,
+		timeoutMs = 8000
+	) => {
+		boundary.onAskResource(resourceName, async data => {
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+
+			try {
+				return await Promise.race([
+					Promise.resolve(getterFn(data)),
+					new Promise(resolve => {
+						timeout = setTimeout(() => resolve(undefined), timeoutMs);
+					}),
+				]);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				console.warn(`[Resource] ${resourceName} failed: ${message}`);
+				return undefined;
+			} finally {
+				if (timeout) {
+					clearTimeout(timeout);
+				}
+			}
+		});
+	};
+
+	const _getProfilePicUrl = async ({
+		id,
+		type = 'preview',
+	}: {
+		id: string;
+		type?: 'preview' | 'image';
+	}) => {
 		if (!id) {
 			return console.warn('Tried to fetch profile pic but no ID was provided!');
 		}
 
-		const picUrl = await baileys.getProfilePic(id);
+		if (!Context.get('ready')) {
+			return undefined;
+		}
+
+		const picUrl = await baileys.getProfilePic(id, type);
 		return picUrl;
 	};
 
@@ -37,7 +79,7 @@ export const createResourceGatheres = (
 		if (!id) {
 			return console.warn('Tried to fetch group chat info but no ID was provided');
 		}
-		if (!id.includes('@g.us')) {
+		if (!isGroupLikeChatId(id)) {
 			return console.warn(
 				'Tried to fetch group chat info but got an invalid ID:',
 				id
@@ -55,7 +97,7 @@ export const createResourceGatheres = (
 		if (!id) {
 			return console.warn('Tried to fetch group chat info but no ID was provided');
 		}
-		if (!id.includes('@g.us')) {
+		if (!isGroupChatId(id)) {
 			return console.warn(
 				'Tried to fetch group chat info but got an invalid ID:',
 				id
@@ -81,11 +123,78 @@ export const createResourceGatheres = (
 		return chatDetails;
 	};
 
+	const _getChatOrder = (limit = 0) => {
+		const hostData = Context.get('hostData');
+		const hostIds = new Set(
+			[hostData.id, hostData.lid].filter(Boolean) as string[]
+		);
+
+		return getChatOrder(limit)?.filter(chat => !hostIds.has(chat.id)) ?? [];
+	};
+
+	const getCanonicalChatId = async (chatId: string) => {
+		if (isGroupLikeChatId(chatId)) {
+			return chatId;
+		}
+
+		if (chatId.endsWith('@lid')) {
+			return (await resolveJidFromLid(chatId)) ?? chatId;
+		}
+
+		return chatId;
+	};
+
+	const getDedupedChatOrder = async (limit = 0) => {
+		const chatOrder = _getChatOrder(limit);
+		const dedupedChats = new Map<string, (typeof chatOrder)[number]>();
+
+		for (const chat of chatOrder) {
+			const canonicalId = await getCanonicalChatId(chat.id);
+			const currentChat = dedupedChats.get(canonicalId);
+
+			if (!currentChat) {
+				dedupedChats.set(canonicalId, {
+					...chat,
+					id: canonicalId,
+				});
+				continue;
+			}
+
+			const currentTimestamp = currentChat.lastMessageTimestamp ?? 0;
+			const nextTimestamp = chat.lastMessageTimestamp ?? 0;
+			const nextUnreadCount =
+				(currentChat.unreadCount ?? 0) + (chat.unreadCount ?? 0);
+
+			dedupedChats.set(canonicalId, {
+				...(nextTimestamp > currentTimestamp ? chat : currentChat),
+				id: canonicalId,
+				unreadCount: nextUnreadCount,
+				lastMessageTimestamp: Math.max(currentTimestamp, nextTimestamp),
+			});
+		}
+
+		return Array.from(dedupedChats.values()).sort(
+			(a, b) => (b.lastMessageTimestamp ?? 0) - (a.lastMessageTimestamp ?? 0)
+		);
+	};
+
+	const _getChatSidebarList = async (limit = 0) => {
+		const chatOrder = await getDedupedChatOrder(limit);
+
+		return Promise.all(
+			chatOrder.map(async metadata => ({
+				...metadata,
+				details: await getChatDetails(metadata.id),
+				unreadCount: metadata.unreadCount ?? (await getUnreadCount(metadata.id)),
+			}))
+		);
+	};
+
 	const _getContactInfo = async ({ id }: { id: string }) => {
 		if (!id) {
 			return console.warn('Tried to fetch contact info but no ID was provided');
 		}
-		if (id.includes('@g.us')) {
+		if (isGroupLikeChatId(id)) {
 			return console.warn('Tried to fetch contact info but got an invalid ID:', id);
 		}
 
@@ -167,6 +276,19 @@ export const createResourceGatheres = (
 		return getRecentChatMessagesWithMedia({ chatId, limit, excludeMessageId });
 	};
 
+	const _getPinnedMessage = async ({ chatId }: { chatId?: string }) => {
+		if (!chatId) {
+			return console.warn('Tried to fetch pinned message but no chatId was provided');
+		}
+
+		const metadata = getChatMetadata(chatId);
+		if (!metadata?.pinnedMessageId) {
+			return null;
+		}
+
+		return getMessage(metadata.pinnedMessageId);
+	};
+
 	const _getMessageCount = ({
 		chatId,
 		startTimestamp,
@@ -181,31 +303,82 @@ export const createResourceGatheres = (
 		return getMessageCountByContact({ chatId, startTimestamp });
 	};
 
-	const _chatRead = async ({ messageIds }: { messageIds?: string[] }) => {
+	const _getStatusContacts = (limit = 200) => {
+		return getStatusContactSummaries(limit);
+	};
+
+	const _getStatusMessages = ({
+		contactId,
+		limit,
+	}: {
+		contactId?: string;
+		limit?: number;
+	}) => {
+		if (!contactId) {
+			return console.warn('Tried to fetch status messages but no contactId was provided');
+		}
+
+		return getRecentStatusMessagesWithMedia({ contactId, limit });
+	};
+
+	const markUnreadCountAsRead = async (chatId: string) => {
+		const alias = chatId.endsWith('@lid')
+			? await resolveJidFromLid(chatId)
+			: chatId.endsWith('@s.whatsapp.net')
+				? await resolveLidFromJid(chatId)
+				: null;
+		const chatIds = [chatId, alias].filter(
+			(id, index, ids): id is string => !!id && ids.indexOf(id) === index
+		);
+
+		await Promise.all(chatIds.map(id => updateChatUnreadCount(id, 0)));
+	};
+
+	const _chatRead = async ({
+		chatId,
+		messageIds,
+	}: {
+		chatId?: string;
+		messageIds?: string[];
+	}) => {
+		if (!chatId && (!Array.isArray(messageIds) || !messageIds.length)) {
+			return console.warn(
+				'Tried to mark chat read but no chatId or messageIds were provided'
+			);
+		}
+
+		if (chatId) {
+			await markUnreadCountAsRead(chatId);
+		}
+
 		if (!Array.isArray(messageIds) || !messageIds.length) {
-			return console.warn('Tried to mark chat read but no messageIds were provided');
+			return { read: 0 };
 		}
 
 		return baileys.readMessages(messageIds);
 	};
 
-	boundary.onAskResource('contact_profile_pic', _getProfilePicUrl);
-	boundary.onAskResource('group_chat_info', _getGroupChatInfo);
-	boundary.onAskResource('group_admin_list', _groupAdminList);
-	boundary.onAskResource('unread_count', _getUnreadCount);
-	boundary.onAskResource('chat_details', _getChatDetails);
-	boundary.onAskResource('contact_info', _getContactInfo);
-	boundary.onAskResource('lid_from_jid', _getLidFromJid);
-	boundary.onAskResource('jid_from_lid', _getJidFromLid);
-	boundary.onAskResource('chat_order', getChatOrder);
-	boundary.onAskResource('chat_status', _chatStatus);
-	boundary.onAskResource('all_groups', _getAllGroups);
-	boundary.onAskResource('all_private_chats', _getAllPrivateChats);
-	boundary.onAskResource('recent_chat_messages', _getRecentChatMessages);
-	boundary.onAskResource(
+	onAskResource('contact_profile_pic', _getProfilePicUrl, 12000);
+	onAskResource('group_chat_info', _getGroupChatInfo);
+	onAskResource('group_admin_list', _groupAdminList);
+	onAskResource('unread_count', _getUnreadCount);
+	onAskResource('chat_details', _getChatDetails);
+	onAskResource('contact_info', _getContactInfo);
+	onAskResource('lid_from_jid', _getLidFromJid);
+	onAskResource('jid_from_lid', _getJidFromLid);
+	onAskResource('chat_order', getDedupedChatOrder);
+	onAskResource('chat_sidebar_list', _getChatSidebarList);
+	onAskResource('chat_status', _chatStatus);
+	onAskResource('all_groups', _getAllGroups);
+	onAskResource('all_private_chats', _getAllPrivateChats);
+	onAskResource('recent_chat_messages', _getRecentChatMessages);
+	onAskResource(
 		'recent_chat_messages_with_media',
 		_getRecentChatMessagesWithMedia
 	);
-	boundary.onAskResource('message_count', _getMessageCount);
-	boundary.onAskResource('chat_read', _chatRead);
+	onAskResource('pinned_message', _getPinnedMessage);
+	onAskResource('message_count', _getMessageCount);
+	onAskResource('status_contacts', _getStatusContacts);
+	onAskResource('status_messages', _getStatusMessages);
+	onAskResource('chat_read', _chatRead);
 };

@@ -9,6 +9,7 @@
 		"dev": "tsc --watch & node --watch --watch-path=dist dist/index.js",
 		"start": "tsc && link-module-alias && node dist/index.js",
 		"startdev": "tsc && link-module-alias && node -r dotenv/config dist/index.js dotenv_config_path=./.env.dev",
+		"auth:reset": "mkdir -p .auth-backups && ts=$(date +%Y%m%d-%H%M%S) && for path in baileys-auth.sqlite baileys-auth.sqlite-shm baileys-auth.sqlite-wal creds; do if [ -e \"$path\" ]; then mv \"$path\" \".auth-backups/$path.$ts\"; fi; done",
 		"test": "jest",
 		"docs": "typedoc ./src/index.ts"
 	},

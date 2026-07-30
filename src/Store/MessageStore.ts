@@ -1,9 +1,15 @@
 import { MessageReceived } from 'kozz-types';
 import Context from 'src/Context';
 import { getMedia, saveMedia } from './MediaStore';
-import { getContact, resolveJidFromLid, saveContact } from './ContactStore';
+import {
+	getContact,
+	resolveJidFromLid,
+	resolveLidFromJid,
+	saveContact,
+} from './ContactStore';
 import { MessageModel } from './models';
 import { proto } from 'baileys';
+import { STATUS_BROADCAST_JID } from 'src/util/chat';
 
 const database = Context.get('database');
 
@@ -53,6 +59,24 @@ export const getMessage = async (
 	};
 };
 
+export const getOriginalWaMessage = async (
+	id: string
+): Promise<proto.IWebMessageInfo | null> => {
+	const message: MessageModel | null =
+		((await database.getById('message', id)) as MessageModel) ?? null;
+
+	if (!message?.originalMessagePayload) {
+		return null;
+	}
+
+	try {
+		return JSON.parse(message.originalMessagePayload) as proto.IWebMessageInfo;
+	} catch (error) {
+		console.warn(`[MessageStore] Invalid original message payload for ${id}`, error);
+		return null;
+	}
+};
+
 type RecentChatMessagesArgs = {
 	chatId: string;
 	limit?: number;
@@ -62,6 +86,11 @@ type RecentChatMessagesArgs = {
 type MessageCountByContactArgs = {
 	chatId: string;
 	startTimestamp?: number;
+};
+
+type StatusMessagesArgs = {
+	contactId: string;
+	limit?: number;
 };
 
 export type RecentChatMessage = {
@@ -89,14 +118,71 @@ const normalizeLimit = (limit?: number) => {
 	return Math.max(1, Math.min(Math.floor(limit!), 1000));
 };
 
+const getChatMessageAliases = async (chatId: string) => {
+	const resolvedAlias = chatId.endsWith('@lid')
+		? await resolveJidFromLid(chatId)
+		: chatId.endsWith('@s.whatsapp.net')
+			? await resolveLidFromJid(chatId)
+			: null;
+
+	return [chatId, resolvedAlias].filter(
+		(alias, index, aliases): alias is string =>
+			!!alias && aliases.indexOf(alias) === index
+	);
+};
+
+const buildChatMessageQuery = (aliases: string[], excludeMessageId?: string) => {
+	const chatQuery = aliases.map((_, index) => `to == $${index}`).join(' OR ');
+	const query = excludeMessageId
+		? `(${chatQuery}) AND id != $${aliases.length}`
+		: chatQuery;
+	const queryArgs = excludeMessageId ? [...aliases, excludeMessageId] : aliases;
+
+	return { query, queryArgs };
+};
+
+const HIDDEN_STRUCTURAL_MESSAGE_TYPES = new Set([
+	'pinInChatMessage',
+	'pollUpdateMessage',
+]);
+
+const getStoredRawMessageType = (message: MessageModel) => {
+	try {
+		const originalMessage = JSON.parse(message.originalMessagePayload || '{}');
+		const content =
+			originalMessage.message?.ephemeralMessage?.message ||
+			originalMessage.message?.viewOnceMessageV2?.message ||
+			originalMessage.message?.viewOnceMessageV2Extension?.message ||
+			originalMessage.message?.documentWithCaptionMessage?.message ||
+			originalMessage.message?.lottieStickerMessage?.message ||
+			originalMessage.message;
+
+		if (!content) return null;
+
+		return (
+			Object.keys(content).find(key => key !== 'messageContextInfo') || null
+		);
+	} catch {
+		return null;
+	}
+};
+
+const isHiddenStructuralMessage = (message: MessageModel) => {
+	const rawMessageType = getStoredRawMessageType(message);
+
+	return (
+		!!rawMessageType && HIDDEN_STRUCTURAL_MESSAGE_TYPES.has(rawMessageType)
+	);
+};
+
 export const getRecentChatMessages = async ({
 	chatId,
 	limit,
 	excludeMessageId,
 }: RecentChatMessagesArgs): Promise<RecentChatMessage[]> => {
 	const safeLimit = normalizeLimit(limit);
-	const query = excludeMessageId ? 'to == $0 AND id != $1' : 'to == $0';
-	const queryArgs = excludeMessageId ? [chatId, excludeMessageId] : [chatId];
+	const aliases = await getChatMessageAliases(chatId);
+	const { query, queryArgs } = buildChatMessageQuery(aliases, excludeMessageId);
 
 	const recentMessages = (
 		database.getFilteredSorted(
@@ -107,7 +193,9 @@ export const getRecentChatMessages = async ({
 			'des',
 			safeLimit
 		) ?? []
-	).reverse();
+	)
+		.filter(message => !isHiddenStructuralMessage(message))
+		.reverse();
 
 	return Promise.all(
 		recentMessages.map(async message => {
@@ -161,8 +249,8 @@ export const getRecentChatMessagesWithMedia = async ({
 	excludeMessageId,
 }: RecentChatMessagesArgs): Promise<MessageReceived[]> => {
 	const safeLimit = normalizeLimit(limit);
-	const query = excludeMessageId ? 'to == $0 AND id != $1' : 'to == $0';
-	const queryArgs = excludeMessageId ? [chatId, excludeMessageId] : [chatId];
+	const aliases = await getChatMessageAliases(chatId);
+	const { query, queryArgs } = buildChatMessageQuery(aliases, excludeMessageId);
 
 	const recentMessages = (
 		database.getFilteredSorted(
@@ -173,7 +261,9 @@ export const getRecentChatMessagesWithMedia = async ({
 			'des',
 			safeLimit
 		) ?? []
-	).reverse();
+	)
+		.filter(message => !isHiddenStructuralMessage(message))
+		.reverse();
 
 	const messages = await Promise.all(
 		recentMessages.map(message => hydrateRecentMessageWithMedia(message))
@@ -186,6 +276,14 @@ export type MessageCountByContact = {
 	contactId: string;
 	count: number;
 	aliases: string[];
+};
+
+export type StatusContactSummary = {
+	contactId: string;
+	name: string;
+	lastStatusPreview: string;
+	lastStatusTimestamp: number | null;
+	statusCount: number;
 };
 
 const normalizeStartTimestamp = (startTimestamp?: number) => {
@@ -245,4 +343,103 @@ export const getMessageCountByContact = async ({
 	}
 
 	return Object.values(mergedCounts).sort((a, b) => b.count - a.count);
+};
+
+const getContactAliases = async (contactId: string) => {
+	const resolvedAlias = contactId.endsWith('@lid')
+		? await resolveJidFromLid(contactId)
+		: contactId.endsWith('@s.whatsapp.net')
+			? await resolveLidFromJid(contactId)
+			: null;
+	const contact = await getContact(resolvedAlias ?? contactId);
+
+	return [contactId, resolvedAlias, contact?.id, contact?.lid].filter(
+		(alias, index, aliases): alias is string =>
+			!!alias && aliases.indexOf(alias) === index
+	);
+};
+
+const getStatusContactName = async (contactId: string) => {
+	const contact = await getContact(contactId);
+	return (
+		contact?.privateName ||
+		contact?.publicName ||
+		contactId.replace(/@(lid|s\.whatsapp\.net)$/, '')
+	);
+};
+
+export const getStatusContactSummaries = async (
+	limit?: number
+): Promise<StatusContactSummary[]> => {
+	const safeLimit = normalizeLimit(limit);
+	const statusMessages =
+		database.getFilteredSorted(
+			'message',
+			'to == $0',
+			[STATUS_BROADCAST_JID],
+			'timestamp',
+			'des',
+			safeLimit
+		) ?? [];
+
+	const summaries = new Map<string, StatusContactSummary>();
+
+	for (const message of statusMessages) {
+		if (isHiddenStructuralMessage(message)) {
+			continue;
+		}
+
+		const aliases = await getContactAliases(message.from);
+		const canonicalContactId = aliases.find(alias =>
+			alias.endsWith('@s.whatsapp.net')
+		) ?? aliases[0] ?? message.from;
+		const currentSummary = summaries.get(canonicalContactId);
+
+		summaries.set(canonicalContactId, {
+			contactId: canonicalContactId,
+			name: currentSummary?.name ?? (await getStatusContactName(canonicalContactId)),
+			lastStatusPreview:
+				currentSummary?.lastStatusPreview ||
+				message.taggedConctactFriendlyBody ||
+				message.body ||
+				message.messageType,
+			lastStatusTimestamp:
+				currentSummary?.lastStatusTimestamp ?? message.timestamp ?? null,
+			statusCount: (currentSummary?.statusCount ?? 0) + 1,
+		});
+	}
+
+	return Array.from(summaries.values()).sort(
+		(a, b) => (b.lastStatusTimestamp ?? 0) - (a.lastStatusTimestamp ?? 0)
+	);
+};
+
+export const getRecentStatusMessagesWithMedia = async ({
+	contactId,
+	limit,
+}: StatusMessagesArgs): Promise<MessageReceived[]> => {
+	const safeLimit = normalizeLimit(limit);
+	const aliases = await getContactAliases(contactId);
+	const authorQuery = aliases
+		.flatMap((_, index) => [`from == $${index + 1}`, `contact == $${index + 1}`])
+		.join(' OR ');
+
+	const recentMessages = (
+		database.getFilteredSorted(
+			'message',
+			`to == $0 AND (${authorQuery})`,
+			[STATUS_BROADCAST_JID, ...aliases],
+			'timestamp',
+			'des',
+			safeLimit
+		) ?? []
+	)
+		.filter(message => !isHiddenStructuralMessage(message))
+		.reverse();
+
+	const messages = await Promise.all(
+		recentMessages.map(message => hydrateRecentMessageWithMedia(message))
+	);
+
+	return messages.filter(Boolean) as MessageReceived[];
 };
