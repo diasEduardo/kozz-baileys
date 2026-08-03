@@ -4,6 +4,7 @@ import path from 'path';
 import sqlite3 from 'sqlite3';
 import { appPaths } from 'src/InstanceConfig';
 import {
+	AuthenticationCreds,
 	AuthenticationState,
 	BufferJSON,
 	initAuthCreds,
@@ -87,6 +88,16 @@ const initAuthDatabase = async (db: SqliteDatabase) => {
 
 const makeStorage = (db: SqliteDatabase) => {
 	const storageKey = (file: string) => fixFileName(file);
+	let writeQueue = Promise.resolve();
+
+	const enqueueWrite = <T>(operation: () => Promise<T>) => {
+		const pending = writeQueue.catch(() => undefined).then(operation);
+		writeQueue = pending.then(
+			() => undefined,
+			() => undefined
+		);
+		return pending;
+	};
 
 	const normalizeLegacySenderKey = (file: string, value: unknown) => {
 		if (!file.startsWith('sender-key-') || !value) {
@@ -108,14 +119,20 @@ const makeStorage = (db: SqliteDatabase) => {
 	};
 
 	const writeData = async (data: unknown, file: string) => {
-		await run(
-			db,
-			`INSERT INTO baileys_auth_state (key, value, updated_at)
-			 VALUES (?, ?, ?)
-			 ON CONFLICT(key) DO UPDATE SET
-				value = excluded.value,
-				updated_at = excluded.updated_at`,
-			[storageKey(file), JSON.stringify(data, BufferJSON.replacer), Date.now()]
+		const key = storageKey(file);
+		const serialized = JSON.stringify(data, BufferJSON.replacer);
+		const updatedAt = Date.now();
+
+		await enqueueWrite(() =>
+			run(
+				db,
+				`INSERT INTO baileys_auth_state (key, value, updated_at)
+				 VALUES (?, ?, ?)
+				 ON CONFLICT(key) DO UPDATE SET
+					value = excluded.value,
+					updated_at = excluded.updated_at`,
+				[key, serialized, updatedAt]
+			)
 		);
 	};
 
@@ -136,9 +153,10 @@ const makeStorage = (db: SqliteDatabase) => {
 	};
 
 	const removeData = async (file: string) => {
-		await run(db, 'DELETE FROM baileys_auth_state WHERE key = ?', [
-			storageKey(file),
-		]);
+		const key = storageKey(file);
+		await enqueueWrite(() =>
+			run(db, 'DELETE FROM baileys_auth_state WHERE key = ?', [key])
+		);
 	};
 
 	const hasData = async (file: string) => {
@@ -163,10 +181,6 @@ const migrateMultiFileAuthState = async (
 	authDir: string,
 	storage: ReturnType<typeof makeStorage>
 ) => {
-	if (await storage.hasData('creds.json')) {
-		return;
-	}
-
 	const files = await fs.readdir(authDir).catch(() => []);
 	const jsonFiles = files.filter(file => file.endsWith('.json'));
 
@@ -174,7 +188,13 @@ const migrateMultiFileAuthState = async (
 		return;
 	}
 
+	let migrated = 0;
+
 	for (const file of jsonFiles) {
+		if (await storage.hasData(file)) {
+			continue;
+		}
+
 		const filePath = path.join(authDir, file);
 		const raw = await fs.readFile(filePath, 'utf-8').catch(() => undefined);
 
@@ -183,9 +203,12 @@ const migrateMultiFileAuthState = async (
 		}
 
 		await storage.writeData(JSON.parse(raw, BufferJSON.reviver), file);
+		migrated += 1;
 	}
 
-	console.log(`Migrated ${jsonFiles.length} Baileys auth files into SQLite`);
+	if (migrated > 0) {
+		console.log(`Migrated ${migrated} Baileys auth files into SQLite`);
+	}
 };
 
 export const resetSqliteAuthState = async (
@@ -225,7 +248,7 @@ export const useSqliteAuthState = async (
 	multiFileAuthDir = appPaths.credsDir
 ): Promise<{
 	state: AuthenticationState;
-	saveCreds: () => Promise<void>;
+	saveCreds: (update?: Partial<AuthenticationCreds>) => Promise<void>;
 }> => {
 	const db = createDatabase(dbPath);
 	await initAuthDatabase(db);
@@ -233,9 +256,14 @@ export const useSqliteAuthState = async (
 	const storage = makeStorage(db);
 	await migrateMultiFileAuthState(multiFileAuthDir, storage);
 
-	const creds = (await storage.readData<AuthenticationState['creds']>(
+	const storedCreds = await storage.readData<AuthenticationState['creds']>(
 		'creds.json'
-	)) || initAuthCreds();
+	);
+	const creds = storedCreds || initAuthCreds();
+
+	if (!storedCreds) {
+		await storage.writeData(creds, 'creds.json');
+	}
 
 	return {
 		state: {
@@ -297,8 +325,16 @@ export const useSqliteAuthState = async (
 				},
 			},
 		},
-		saveCreds: async () => {
-			await storage.writeData(creds, 'creds.json');
+		saveCreds: async update => {
+			if (update) {
+				Object.assign(creds, update);
+			}
+
+			const snapshot = JSON.parse(
+				JSON.stringify(creds, BufferJSON.replacer),
+				BufferJSON.reviver
+			);
+			await storage.writeData(snapshot, 'creds.json');
 		},
 	};
 };

@@ -55,6 +55,8 @@ export type WaSocket = ReturnType<typeof makeWASocket>;
 
 let activeSocket: WaSocket | null = null;
 let socketStartPromise: Promise<WaSocket> | null = null;
+export const getActiveSocket = () => activeSocket;
+
 let reconnecting = false;
 const processingMessageIds = new Set<string>();
 const msgRetryCounterCache = new NodeCache({
@@ -115,6 +117,7 @@ const createSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 		logger,
 		browser: Browsers.ubuntu('Desktop'),
 	});
+	activeSocket = waSocket;
 	Context.upsert({
 		hostData: setMeFromCreds(state.creds),
 	});
@@ -472,12 +475,12 @@ export const getGroupData = async (
 
 const sessionEvents = (
 	waSocket: ReturnType<typeof makeWASocket>,
-	saveCreds: () => Promise<void>,
+	saveCreds: (update?: any) => Promise<void>,
 	boundary: ReturnType<typeof createBoundary>
 ) => {
-	waSocket.ev.on('creds.update', () => {
-		saveCreds().catch(error => {
-			console.warn('[baileys] failed to save credentials:', error);
+	waSocket.ev.on('creds.update', (update: any) => {
+		saveCreds(update).catch((error: unknown) => {
+			console.error('[auth] failed to persist creds.update:', error);
 		});
 	});
 
@@ -502,6 +505,7 @@ const sessionEvents = (
 				console.log('Connected');
 				reconnecting = false;
 				boundary.emitForwardableEvent('chat_ready', undefined);
+				activeSocket = waSocket;
 				Context.upsert({
 					ready: true,
 					qr: null,
@@ -528,7 +532,9 @@ const sessionEvents = (
 				});
 
 				boundary.emitForwardableEvent('reconnecting', undefined);
-				reconnectSocket(waSocket, boundary);
+				reconnectSocket(waSocket, boundary).catch(error => {
+					console.error('[connection] failed to restart socket:', error);
+				});
 			}
 		} catch (e) {
 			console.warn(e);

@@ -1,4 +1,4 @@
-import { initSession } from './Client';
+import { getActiveSocket, initSession } from './Client';
 import baileysFunctions, {
 	inlineCommandMapFunctions,
 } from './Client/BaileysFunctions';
@@ -179,8 +179,21 @@ const deleteOldMedia = () => {
 	});
 };
 
+const safelySend = async (label: string, send: () => Promise<unknown>) => {
+	try {
+		return await send();
+	} catch (error) {
+		console.error(
+			`[send] ${label} failed:`,
+			error instanceof Error ? error.message : error
+		);
+		console.error(error);
+	}
+};
+
 initSession(boundary).then(waSocket => {
 	const baileys = baileysFunctions(waSocket);
+	const getBaileys = () => baileysFunctions(getActiveSocket() ?? waSocket);
 
 	CronJob.from({
 		cronTime: '0 */10 * * * *',
@@ -195,7 +208,9 @@ initSession(boundary).then(waSocket => {
 			return;
 		}
 
-		baileys.sendText(payload.chatId, body, payload.quoteId, companion.mentions);
+		return safelySend('reply_with_text', () =>
+			getBaileys().sendText(payload.chatId, body, payload.quoteId, companion.mentions)
+		);
 	});
 
 	boundary.kozzSocket.on(
@@ -206,56 +221,72 @@ initSession(boundary).then(waSocket => {
 				return;
 			}
 
-			baileys.sendText(payload.chatId, payload.body, payload.quoteId);
+			return safelySend('iwac_reply_text', () =>
+				getBaileys().sendText(payload.chatId!, payload.body!, payload.quoteId!)
+			);
 		}
 	);
 
 	boundary.handleReplyWithSticker(async (payload, companion, caption) => {
-		baileys.sendMedia(
-			payload.chatId,
-			payload.media!,
-			{
-				caption,
-				mentionedList: companion.mentions,
-				asSticker: true,
-				contact: payload.contact,
-				emojis: payload.media?.stickerTags,
-			},
-			payload.quoteId
+		return safelySend('reply_with_sticker', () =>
+			getBaileys().sendMedia(
+				payload.chatId,
+				payload.media!,
+				{
+					caption,
+					mentionedList: companion.mentions,
+					asSticker: true,
+					contact: payload.contact,
+					emojis: payload.media?.stickerTags,
+				},
+				payload.quoteId
+			)
 		);
 	});
 
 	boundary.handleReplyWithMedia((payload, companion, caption) => {
-		baileys.sendMedia(
-			payload.chatId,
-			payload.media!,
-			{
-				caption,
-				mentionedList: companion.mentions,
-			},
-			payload.quoteId
+		return safelySend('reply_with_media', () =>
+			getBaileys().sendMedia(
+				payload.chatId,
+				payload.media!,
+				{
+					caption,
+					mentionedList: companion.mentions,
+				},
+				payload.quoteId
+			)
 		);
 	});
 
 	boundary.handleSendMessage((payload, companion, body) => {
-		baileys.sendText(payload.chatId, body, undefined, companion.mentions);
+		console.log({ payload, companion, body });
+
+		return safelySend('send_message', () =>
+			getBaileys().sendText(payload.chatId, body, undefined, companion.mentions)
+		);
 	});
 
 	boundary.handleSendMessageWithMedia((payload, companion, body) => {
-		baileys.sendMedia(
-			payload.chatId,
-			payload.media!,
-			{ caption: body, mentionedList: companion.mentions },
-			payload.quoteId
+		return safelySend('send_message_with_media', () =>
+			getBaileys().sendMedia(
+				payload.chatId,
+				payload.media!,
+				{ caption: body, mentionedList: companion.mentions },
+				payload.quoteId
+			)
 		);
 	});
 
 	boundary.handleReactMessage(async payload => {
-		baileys.reactMessage(payload.messageId, payload.emote);
+		return safelySend('react_message', () =>
+			getBaileys().reactMessage(payload.messageId, payload.emote)
+		);
 	});
 
 	boundary.hanldeDeleteMessage(payload => {
-		baileys.deleteMessage(payload.messageId);
+		return safelySend('delete_message', () =>
+			getBaileys().deleteMessage(payload.messageId)
+		);
 	});
 
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
