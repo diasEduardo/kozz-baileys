@@ -12,10 +12,10 @@ default.realm.lock
 defaul.realm.management
 keys
 defaul.realm.note
+debug/
 creds
 instances
 .codegpt
 creds.bkp/
 .codegpt
-debug/lottie/
 package-lock.json

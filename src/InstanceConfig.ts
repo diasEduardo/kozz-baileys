@@ -47,11 +47,6 @@ export const appPaths = {
 	debugDir: process.env.BAILEYS_DEBUG_DIR || path.join(instanceRoot, 'debug'),
 };
 
-export const lottiePaths = {
-	root: path.join(appPaths.debugDir, 'lottie'),
-	generated: path.join(appPaths.debugDir, 'lottie', 'generated'),
-};
-
 export const describeInstance = () => ({
 	boundaryName,
 	namespace,

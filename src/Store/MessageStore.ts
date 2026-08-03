@@ -30,6 +30,10 @@ export const saveMessage = async (
 	return message.id;
 };
 
+export const messageExists = async (id: string): Promise<boolean> => {
+	return Boolean(await database.getById('message', id));
+};
+
 export const getMessage = async (
 	id: string
 ): Promise<(MessageReceived & { originalMessagePayload: string }) | null> => {
@@ -154,7 +158,6 @@ const getStoredRawMessageType = (message: MessageModel) => {
 			originalMessage.message?.viewOnceMessageV2?.message ||
 			originalMessage.message?.viewOnceMessageV2Extension?.message ||
 			originalMessage.message?.documentWithCaptionMessage?.message ||
-			originalMessage.message?.lottieStickerMessage?.message ||
 			originalMessage.message;
 
 		if (!content) return null;

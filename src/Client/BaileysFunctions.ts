@@ -1,36 +1,49 @@
 import { WaSocket } from '.';
 import {
 	AnyMessageContent,
-	generateWAMessageFromContent,
-	prepareWAMessageMedia,
 	proto,
 } from 'baileys';
-import JSZip from 'jszip';
 import { ContactPayload, Media } from 'kozz-types';
 import context from '../Context';
 import { downloadBuffer } from 'src/util/downloadBuffer';
 import { convertJpegToWebp, convertMP4ToWebp } from 'src/MediaConverter';
 import { getMessage } from 'src/Store/MessageStore';
-import { getContactByLid } from 'src/Store/ContactStore';
+import {
+	getContactByLid,
+	resolveLidFromJid,
+	saveLidMapping,
+} from 'src/Store/ContactStore';
 import {
 	generateHash,
 	getFormattedDateAndTime,
 	getVisibleContactMention,
 } from 'src/util/utility';
-import fs from 'fs';
 import {
 	CompanionObject,
 	InlineCommandMap,
 	StyleVariant,
 } from 'kozz-boundary-maker/dist/InlineCommand';
-import path from 'path';
-import { lottiePaths } from 'src/InstanceConfig';
 import { getGroupChat } from 'src/Store/ChatStore';
-import logger from 'src/util/logger';
-import sharp from 'sharp';
 const webp = require('node-webpmux'); // import has type error.
 
 const database = context.get('database');
+const PN_DOMAIN = '@s.whatsapp.net';
+const LID_DOMAIN = '@lid';
+const GROUP_DOMAIN = '@g.us';
+
+type OnWhatsAppResult = {
+	jid?: string;
+	lid?: string;
+	exists?: boolean;
+};
+
+const normalizePnJid = (jid: string) => {
+	if (jid.includes('@')) {
+		return jid;
+	}
+
+	return `${jid}${PN_DOMAIN}`;
+};
 
 const getOGQuotedMessagePayload = (messageId?: string) => {
 	if (!messageId) {
@@ -51,8 +64,54 @@ const getOGQuotedMessagePayload = (messageId?: string) => {
 
 const baileysFunctions = (client: WaSocket) => {
 	const checkNumber = async (id: string) => {
-		const result = await client.onWhatsApp(`${id}`);
-		return result?.[0].exists;
+		const result = (await client.onWhatsApp(
+			normalizePnJid(id)
+		)) as OnWhatsAppResult[] | undefined;
+		const match = result?.[0];
+		if (match?.jid && match?.lid) {
+			await saveLidMapping(match.jid, match.lid);
+		}
+
+		return match?.exists;
+	};
+
+	const resolveSendTarget = async (receiverId: string): Promise<string> => {
+		if (
+			!receiverId ||
+			receiverId.endsWith(GROUP_DOMAIN) ||
+			receiverId.endsWith(LID_DOMAIN)
+		) {
+			return receiverId;
+		}
+
+		const pnJid = normalizePnJid(receiverId);
+		if (!pnJid.endsWith(PN_DOMAIN)) {
+			return receiverId;
+		}
+
+		const knownLid = await resolveLidFromJid(pnJid);
+		if (knownLid) {
+			return knownLid;
+		}
+
+		try {
+			const result = (await client.onWhatsApp(
+				pnJid
+			)) as OnWhatsAppResult[] | undefined;
+			const match = result?.find(contact => contact.exists);
+			if (match?.jid && match?.lid) {
+				await saveLidMapping(match.jid, match.lid);
+				return match.lid;
+			}
+
+			return match?.jid ?? receiverId;
+		} catch (e) {
+			console.warn('[LID] Could not resolve send target:', {
+				receiverId,
+				error: e,
+			});
+			return receiverId;
+		}
 	};
 
 	const sendText = async (
@@ -61,8 +120,9 @@ const baileysFunctions = (client: WaSocket) => {
 		quotedMessageId?: string,
 		tagged?: string[]
 	) => {
+		const targetId = await resolveSendTarget(receiverId);
 		return client.sendMessage(
-			receiverId,
+			targetId,
 			{
 				text,
 				mentions: tagged,
@@ -87,6 +147,7 @@ const baileysFunctions = (client: WaSocket) => {
 		},
 		quoteId?: string
 	) => {
+		const targetId = await resolveSendTarget(contactId);
 		const sendMediaOptions: Partial<AnyMessageContent> = {
 			viewOnce: options?.viewOnce,
 			mentions: options?.mentionedList ?? [],
@@ -138,7 +199,7 @@ const baileysFunctions = (client: WaSocket) => {
 
 			try {
 				return client.sendMessage(
-					contactId,
+					targetId,
 					{
 						...sendMediaOptions,
 						sticker: mediaData,
@@ -156,7 +217,7 @@ const baileysFunctions = (client: WaSocket) => {
 		if (media.mimeType.startsWith('audio')) {
 			try {
 				return client.sendMessage(
-					contactId,
+					targetId,
 					{
 						...sendMediaOptions,
 						audio: mediaData,
@@ -175,7 +236,7 @@ const baileysFunctions = (client: WaSocket) => {
 		if (media.mimeType.startsWith('image')) {
 			try {
 				return await client.sendMessage(
-					contactId,
+					targetId,
 					{
 						...sendMediaOptions,
 						image: mediaData,
@@ -192,7 +253,7 @@ const baileysFunctions = (client: WaSocket) => {
 		if (media.mimeType.startsWith('video')) {
 			try {
 				return client.sendMessage(
-					contactId,
+					targetId,
 					{
 						...sendMediaOptions,
 						video: mediaData,
@@ -207,7 +268,7 @@ const baileysFunctions = (client: WaSocket) => {
 		}
 		try {
 			return client.sendMessage(
-				contactId,
+				targetId,
 				{
 					...sendMediaOptions,
 					text: '',
@@ -316,292 +377,6 @@ const baileysFunctions = (client: WaSocket) => {
 		return getContactByLid(lid);
 	};
 
-	const getKnownLottiePath = () => {
-		const lottieDir = lottiePaths.root;
-		if (!fs.existsSync(lottieDir)) {
-			return undefined;
-		}
-
-		const candidates = fs
-			.readdirSync(lottieDir)
-			.filter(fileName => fileName.endsWith('.was'))
-			.map(fileName => ({
-				fileName,
-				fullPath: path.join(lottieDir, fileName),
-				mtimeMs: fs.statSync(path.join(lottieDir, fileName)).mtimeMs,
-			}))
-			.sort((a, b) => b.mtimeMs - a.mtimeMs);
-
-		return candidates[0]?.fullPath;
-	};
-
-	const buildRotatingSecondaryLottieAnimation = (
-		pngBuffer: Buffer,
-		outputKey: string
-	) => {
-		const canvasSize = 512;
-		const centerX = canvasSize / 2;
-		const centerY = canvasSize / 2;
-		const inlineAsset = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-
-		return {
-			nm: 'Main Scene',
-			ddd: 0,
-			h: canvasSize,
-			w: canvasSize,
-			meta: {
-				g: '@lottiefiles/creator 1.87.1',
-			},
-			layers: [
-				{
-					ty: 2,
-					nm: `quoted_${outputKey}`,
-					sr: 1,
-					st: 0,
-					op: 150,
-					ip: 0,
-					hd: false,
-					ddd: 0,
-					bm: 0,
-					hasMask: false,
-					ao: 0,
-					ks: {
-						a: {
-							a: 0,
-							k: [centerX, centerY],
-						},
-						s: {
-							a: 0,
-							k: [100, 100],
-						},
-						sk: {
-							a: 0,
-							k: 0,
-						},
-						p: {
-							a: 0,
-							k: [centerX, centerY],
-						},
-						r: {
-							a: 1,
-							k: [
-								{
-									o: { x: 0.7, y: 0.064 },
-									i: { x: 0.3, y: 0.936 },
-									s: [0],
-									t: 0,
-								},
-								{
-									s: [360],
-									t: 150,
-								},
-							],
-						},
-						sa: {
-							a: 0,
-							k: 0,
-						},
-						o: {
-							a: 0,
-							k: 100,
-						},
-					},
-					refId: 'quoted_sticker',
-					ind: 1,
-				},
-			],
-			v: '5.7.0',
-			fr: 30,
-			ip: 0,
-			op: 150,
-			assets: [
-				{
-					id: 'quoted_sticker',
-					w: canvasSize,
-					h: canvasSize,
-					p: inlineAsset,
-					e: 1,
-				},
-			],
-		};
-	};
-
-	const getQuotedStickerPng = async (quotedSticker: Media) => {
-		const quotedStickerBuffer =
-			quotedSticker.transportType === 'b64'
-				? Buffer.from(quotedSticker.data, 'base64')
-				: await downloadBuffer(quotedSticker.data);
-
-		return sharp(quotedStickerBuffer)
-			.resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-			.png()
-			.toBuffer();
-	};
-
-	const createGeneratedLottieWas = async (quotedSticker: Media, outputKey: string) => {
-		const validLottiePath = getKnownLottiePath();
-		if (!validLottiePath) {
-			throw new Error(`No valid .was file available in ${lottiePaths.root}`);
-		}
-
-		const quotedStickerPng = await getQuotedStickerPng(quotedSticker);
-
-		const zip = await JSZip.loadAsync(fs.readFileSync(validLottiePath));
-		const animation = await buildRotatingSecondaryLottieAnimation(
-			quotedStickerPng,
-			outputKey
-		);
-
-		zip.file('animation/animation_secondary.json', JSON.stringify(animation));
-
-		const generatedBuffer = await zip.generateAsync({
-			type: 'nodebuffer',
-			compression: 'DEFLATE',
-		});
-
-		const outputPath = path.join(lottiePaths.generated, `${outputKey}.was`);
-		fs.writeFileSync(outputPath, generatedBuffer);
-		return outputPath;
-	};
-
-	const getQuotedStickerForLottie = async (
-		receiverId: string,
-		quotedSourceMessageId: string,
-		replyToMessageId?: string
-	): Promise<Media | undefined> => {
-		const quotedMessage = await getMessage(quotedSourceMessageId);
-		if (!quotedMessage) {
-			await sendText(receiverId, 'Quoted message not found in storage.', replyToMessageId);
-			return undefined;
-		}
-
-		if (quotedMessage.messageType !== 'STICKER' || !quotedMessage.media) {
-			await sendText(
-				receiverId,
-				'Quote a sticker message so I can turn it into a rotating Lottie test.',
-				replyToMessageId
-			);
-			return undefined;
-		}
-
-		if (quotedMessage.media.mimeType === 'application/was') {
-			await sendText(
-				receiverId,
-				'Quoted Lottie stickers are not supported as a basis yet. Quote a regular sticker first.',
-				replyToMessageId
-			);
-			return undefined;
-		}
-
-		return quotedMessage.media;
-	};
-
-	const sendLottieBundle = async (
-		receiverId: string,
-		lottiePath: string,
-		replyToMessageId?: string
-	) => {
-		const lottieBuffer = fs.readFileSync(lottiePath);
-		const preparedMedia = await prepareWAMessageMedia(
-			{
-				sticker: lottieBuffer,
-				mimetype: 'application/was',
-				isAnimated: true,
-			},
-				{
-					upload: client.waUploadToServer,
-					jid: receiverId,
-					logger,
-					mediaTypeOverride: 'sticker',
-				} as any
-			);
-
-		const stickerMessage = preparedMedia.stickerMessage;
-		if (!stickerMessage) {
-			throw new Error('prepareWAMessageMedia returned no stickerMessage');
-		}
-
-		stickerMessage.mimetype = 'application/was';
-		stickerMessage.isAnimated = true;
-		stickerMessage.isLottie = true;
-
-		const fullMessage = generateWAMessageFromContent(
-			receiverId,
-			{
-				lottieStickerMessage: {
-					message: {
-						stickerMessage,
-					},
-				},
-			},
-			{
-				userJid: client.user?.id || context.get('hostData').id,
-				quoted: getOGQuotedMessagePayload(replyToMessageId),
-			}
-		);
-
-		await client.relayMessage(receiverId, fullMessage.message!, {
-			messageId: fullMessage.key.id!,
-		});
-
-		return fullMessage;
-	};
-
-	const sendDebugLottie = async (receiverId: string, quotedMessageId?: string) => {
-		const lottiePath = getKnownLottiePath();
-		if (!lottiePath) {
-			console.warn(`LOTTIE SEND DEBUG: no .was file available in ${lottiePaths.root}`);
-			return undefined;
-		}
-
-		try {
-			console.log(`LOTTIE SEND DEBUG: sending ${lottiePath} to ${receiverId}`);
-			return await sendLottieBundle(receiverId, lottiePath, quotedMessageId);
-		} catch (error) {
-			console.warn('LOTTIE SEND DEBUG: failed to send lottie sticker');
-			console.warn(error);
-			return undefined;
-		}
-	};
-
-	const sendQuotedStickerAsGeneratedLottie = async (
-		receiverId: string,
-		quotedSourceMessageId: string,
-		replyToMessageId?: string
-	) => {
-		const quotedSticker = await getQuotedStickerForLottie(
-			receiverId,
-			quotedSourceMessageId,
-			replyToMessageId
-		);
-		if (!quotedSticker) {
-			return undefined;
-		}
-
-		try {
-			const outputKey = `${quotedSourceMessageId}_${Date.now()}`;
-			const generatedLottiePath = await createGeneratedLottieWas(quotedSticker, outputKey);
-
-			console.log(
-				`LOTTIE SEND DEBUG: generated hybrid test ${generatedLottiePath} from quoted sticker ${quotedSourceMessageId}`
-			);
-			return await sendLottieBundle(
-				receiverId,
-				generatedLottiePath,
-				replyToMessageId
-			);
-		} catch (error) {
-			console.warn('LOTTIE SEND DEBUG: failed to build/send generated lottie sticker');
-			console.warn(error);
-			await sendText(
-				receiverId,
-				'Failed to build the generated Lottie sticker. Check the logs.',
-				replyToMessageId
-			);
-			return undefined;
-		}
-	};
-
 	return {
 		checkNumber,
 		sendMedia,
@@ -611,8 +386,6 @@ const baileysFunctions = (client: WaSocket) => {
 		deleteMessage,
 		readMessages,
 		getContactFromLid,
-		sendDebugLottie,
-		sendQuotedStickerAsGeneratedLottie,
 	};
 };
 

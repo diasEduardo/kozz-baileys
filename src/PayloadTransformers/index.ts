@@ -22,6 +22,133 @@ type LidAwareMessageKey = proto.IMessageKey & {
 	participantPn?: string | null;
 };
 
+const WRAPPER_MESSAGE_KEYS = [
+	'ephemeralMessage',
+	'viewOnceMessage',
+	'viewOnceMessageV2',
+	'viewOnceMessageV2Extension',
+	'documentWithCaptionMessage',
+] as const;
+
+const USER_MESSAGE_TYPES = [
+	'conversation',
+	'extendedTextMessage',
+	'imageMessage',
+	'videoMessage',
+	'audioMessage',
+	'stickerMessage',
+] as const;
+
+export type BaileysMessageEventKind =
+	| 'user_message'
+	| 'reaction'
+	| 'poll_creation'
+	| 'poll_update'
+	| 'protocol_edit'
+	| 'protocol_revoke'
+	| 'protocol'
+	| 'group_update'
+	| 'system'
+	| 'empty'
+	| 'unsupported';
+
+export type BaileysMessageEvent = {
+	kind: BaileysMessageEventKind;
+	content: proto.IMessage | null;
+	contentType?: string;
+	protocolType?: proto.Message.ProtocolMessage.Type | null;
+	stubType?: proto.WebMessageInfo.StubType | null;
+};
+
+export const getMessageContent = (
+	message?: WAMessage | proto.IMessage | null
+): proto.IMessage | null => {
+	const root = 'message' in (message ?? {}) ? (message as WAMessage).message : message;
+	let content = root as proto.IMessage | null | undefined;
+
+	for (let depth = 0; depth < 8 && content; depth++) {
+		const wrapperKey = WRAPPER_MESSAGE_KEYS.find(
+			key => (content as any)?.[key]?.message
+		);
+
+		if (!wrapperKey) {
+			break;
+		}
+
+		content = (content as any)[wrapperKey].message;
+	}
+
+	return content ?? null;
+};
+
+const getContentType = (content?: proto.IMessage | null) => {
+	if (!content) {
+		return undefined;
+	}
+
+	return Object.keys(content).find(key => (content as any)[key] != null);
+};
+
+export const classifyBaileysMessage = (
+	message: WAMessage
+): BaileysMessageEvent => {
+	if (message.messageStubType) {
+		const stubTypeName =
+			proto.WebMessageInfo.StubType[message.messageStubType] ?? 'UNKNOWN';
+
+		return {
+			kind: stubTypeName.startsWith('GROUP_') || stubTypeName.startsWith('COMMUNITY_')
+				? 'group_update'
+				: 'system',
+			content: getMessageContent(message),
+			stubType: message.messageStubType,
+		};
+	}
+
+	const content = getMessageContent(message);
+	const contentType = getContentType(content);
+
+	if (!content || !contentType) {
+		return { kind: 'empty', content };
+	}
+
+	if (content.reactionMessage) {
+		return { kind: 'reaction', content, contentType };
+	}
+
+	if (content.pollUpdateMessage) {
+		return { kind: 'poll_update', content, contentType };
+	}
+
+	if (
+		content.pollCreationMessage ||
+		content.pollCreationMessageV2 ||
+		content.pollCreationMessageV3
+	) {
+		return { kind: 'poll_creation', content, contentType };
+	}
+
+	if (content.protocolMessage) {
+		const protocolType = content.protocolMessage.type ?? null;
+
+		if (protocolType === proto.Message.ProtocolMessage.Type.MESSAGE_EDIT) {
+			return { kind: 'protocol_edit', content, contentType, protocolType };
+		}
+
+		if (protocolType === proto.Message.ProtocolMessage.Type.REVOKE) {
+			return { kind: 'protocol_revoke', content, contentType, protocolType };
+		}
+
+		return { kind: 'protocol', content, contentType, protocolType };
+	}
+
+	if (USER_MESSAGE_TYPES.some(type => (content as any)[type])) {
+		return { kind: 'user_message', content, contentType };
+	}
+
+	return { kind: 'unsupported', content, contentType };
+};
+
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
 	const { fromMe, remoteJid, id, participant } = messageKey;
 	if (participant) {
@@ -166,9 +293,10 @@ export const createtTaggedContactPayload = async (
 ): Promise<ContactPayload[]> => {
 	let contacts: ContactPayload[] = [];
 	const hostAliases = await getHostAliases();
-	if (message.message?.extendedTextMessage?.contextInfo?.mentionedJid) {
-		for (const contactId of message.message?.extendedTextMessage?.contextInfo
-			?.mentionedJid) {
+	const messageContent = getMessageContent(message);
+	if (messageContent?.extendedTextMessage?.contextInfo?.mentionedJid) {
+		for (const contactId of messageContent.extendedTextMessage.contextInfo
+			?.mentionedJid ?? []) {
 			const normalizedContactId = clearContact(contactId);
 			const contact =
 				(await getContact(normalizedContactId)) ||
@@ -198,19 +326,17 @@ export const createtTaggedContactPayload = async (
 };
 
 export const handleEditMessage = async (message: WAMessage) => {
-	if (
-		message.message?.protocolMessage?.type ==
-		proto.Message.ProtocolMessage.Type.MESSAGE_EDIT
-	) {
-		const editedId = message.message?.protocolMessage?.key?.id!;
+	const messageContent = getMessageContent(message);
+	if (messageContent?.protocolMessage?.type == proto.Message.ProtocolMessage.Type.MESSAGE_EDIT) {
+		const editedId = messageContent.protocolMessage.key?.id!;
 		let editedMsg = await getMessage(editedId);
 
 		if (editedMsg) {
 			const editedMessageBody =
-				message.message?.protocolMessage?.editedMessage?.conversation ||
-				message.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text ||
-				message.message?.protocolMessage?.editedMessage?.imageMessage?.caption ||
-				message.message?.protocolMessage?.editedMessage?.videoMessage?.caption ||
+				messageContent.protocolMessage.editedMessage?.conversation ||
+				messageContent.protocolMessage.editedMessage?.extendedTextMessage?.text ||
+				messageContent.protocolMessage.editedMessage?.imageMessage?.caption ||
+				messageContent.protocolMessage.editedMessage?.videoMessage?.caption ||
 				'';
 			editedMsg.body = editedMessageBody;
 
@@ -246,14 +372,6 @@ const normalizeMessageTimestamp = (messageTimestamp: WAMessage['messageTimestamp
 
 	return numericTimestamp < 1e12 ? numericTimestamp * 1000 : numericTimestamp;
 };
-
-const getMessageContent = (message: WAMessage) =>
-	message.message?.ephemeralMessage?.message ||
-	message.message?.viewOnceMessageV2?.message ||
-	message.message?.viewOnceMessageV2Extension?.message ||
-	message.message?.documentWithCaptionMessage?.message ||
-	message.message?.lottieStickerMessage?.message ||
-	message.message;
 
 export const getPinInChatMessage = (message: WAMessage) =>
 	getMessageContent(message)?.pinInChatMessage;
@@ -335,7 +453,6 @@ export const createMessagePayload = async (
 	waSocket: WASocket
 ): Promise<MessageReceived> => {
 	await saveLidMappingsFromMessage(message);
-	handleEditMessage(message); // check if is edit message
 
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message, waSocket);
@@ -360,10 +477,6 @@ export const createMessagePayload = async (
 		? await getMessage(quotedMessageId)
 		: undefined;
 
-	if (messageBody.toLowerCase() === 'teste') {
-		console.log({ id, quotedMessageId, quotedMessage });
-	}
-
 	if (quotedMessageId && quotedMessage) {
 		const quoteMessage = {
 			key: {
@@ -379,6 +492,7 @@ export const createMessagePayload = async (
 		if (mediaQuote) {
 			quotedMessage.media = mediaQuote;
 			quotedMessage.messageType = contextInfo?.quotedMessage?.extendedTextMessage
+				|| contextInfo?.quotedMessage?.conversation
 				? 'TEXT'
 				: contextInfo?.quotedMessage?.audioMessage
 					? 'AUDIO'

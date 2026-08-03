@@ -1,14 +1,12 @@
 import fs from 'fs';
 import { ContactPayload, MessageReceived } from 'kozz-types';
-import { appPaths, lottiePaths } from 'src/InstanceConfig';
+import { appPaths } from 'src/InstanceConfig';
 
 export const createFolderOnInit = () => {
 	tryCreateFolder(appPaths.instanceRoot);
 	tryCreateFolder(appPaths.credsDir);
 	tryCreateFolder(appPaths.mediaDir);
 	tryCreateFolder(appPaths.debugDir);
-	tryCreateFolder(lottiePaths.root);
-	tryCreateFolder(lottiePaths.generated);
 };
 
 const tryCreateFolder = (path: string) => {

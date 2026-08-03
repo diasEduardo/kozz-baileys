@@ -15,23 +15,34 @@ import makeWASocket, {
 import log from 'baileys/lib/Utils/logger';
 import { Boom } from '@hapi/boom';
 import {
+	getGroupChat,
 	getUnreadCount,
 	saveGroupChat,
 	savePrivateChat,
 	updateChatUnreadCount,
 } from 'src/Store/ChatStore';
 import Context, { setMeFromCreds } from 'src/Context';
-import { getMessage, getOriginalWaMessage, saveMessage } from 'src/Store/MessageStore';
 import {
+	getMessage,
+	getOriginalWaMessage,
+	messageExists,
+	saveMessage,
+} from 'src/Store/MessageStore';
+import {
+	BaileysMessageEvent,
+	classifyBaileysMessage,
 	createContactPayload,
 	createContactFromSync,
 	createGroupChatPayload,
 	createMessagePayload,
+	getMessageContent,
 	getPinInChatMessage,
 	getPollUpdateMessage,
+	handleEditMessage,
 	saveLidMappingsFromMessage,
 	stringifyMessageId,
 } from 'src/PayloadTransformers';
+import { MessageReceived } from 'kozz-types';
 import createBoundary from 'kozz-boundary-maker';
 import { saveContact, saveLidMapping, saveLidMappings } from 'src/Store/ContactStore';
 import { updateChatMetadata } from 'src/Store/MetadataStore';
@@ -42,15 +53,17 @@ import { useSqliteAuthState } from './SqliteAuthState';
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 
-console.clear();
-console.log('Initializing DB...');
-
 let activeSocket: WaSocket | null = null;
+let socketStartPromise: Promise<WaSocket> | null = null;
 let reconnecting = false;
+const processingMessageIds = new Set<string>();
 const msgRetryCounterCache = new NodeCache({
 	stdTTL: 60 * 60,
 	useClones: false,
 });
+
+console.clear();
+console.log('Initializing DB...');
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -63,6 +76,18 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 		return activeSocket;
 	}
 
+	if (socketStartPromise) {
+		return socketStartPromise;
+	}
+
+	socketStartPromise = createSocket(boundary).finally(() => {
+		socketStartPromise = null;
+	});
+
+	return socketStartPromise;
+};
+
+const createSocket = async (boundary: ReturnType<typeof createBoundary>) => {
 	const logger = log.child({});
 	logger.level = process.env.BAILEYS_LOG_LEVEL || 'fatal';
 
@@ -132,10 +157,6 @@ const reconnectSocket = async (
 	}
 };
 
-const isUndecryptableMessage = (message: any) =>
-	!message.message ||
-	message.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT;
-
 const getRetryMessage = async (key: proto.IMessageKey) => {
 	const candidateIds = [stringifyMessageId(key), key.id].filter(
 		(id): id is string => !!id
@@ -151,9 +172,293 @@ const getRetryMessage = async (key: proto.IMessageKey) => {
 	return undefined;
 };
 
-const getReactionMessage = (message: any) =>
-	message.message?.reactionMessage ||
-	message.message?.ephemeralMessage?.message?.reactionMessage;
+const logConnectionUpdate = (update: any) => {
+	const statusCode = (update.lastDisconnect?.error as Boom | undefined)?.output
+		?.statusCode;
+
+	console.log('CONNECTION UPDATED =>', {
+		connection: update.connection,
+		isOnline: update.isOnline,
+		isNewLogin: update.isNewLogin,
+		receivedPendingNotifications: update.receivedPendingNotifications,
+		hasQr: Boolean(update.qr),
+		statusCode,
+	});
+};
+
+const getLoggedEventType = (event: BaileysMessageEvent) =>
+	event.contentType || event.kind;
+
+const refreshGroupMetadata = async (
+	waSocket: ReturnType<typeof makeWASocket>,
+	chatId?: string | null
+) => {
+	if (!chatId?.includes('@g.us')) {
+		return;
+	}
+
+	const groupData = await getGroupData(chatId, waSocket);
+	if (groupData) {
+		await saveGroupChat(createGroupChatPayload(groupData));
+	}
+};
+
+const formatLoggedBody = (body: string, messageType: string) => {
+	const singleLineBody = body.replace(/\s+/g, ' ').trim();
+	if (singleLineBody) {
+		return singleLineBody;
+	}
+
+	return `<${messageType}>`;
+};
+
+const getPayloadChatName = async (payload: MessageReceived) => {
+	if (payload.chatId.includes('@g.us')) {
+		const groupChat = await getGroupChat(payload.chatId);
+		return groupChat?.name || payload.chatId;
+	}
+
+	return (
+		payload.contact.privateName ||
+		payload.contact.publicName ||
+		payload.contact.id ||
+		payload.chatId
+	);
+};
+
+const getLoggedChatName = async (chatId?: string | null, fallbackName?: string) => {
+	if (!chatId) {
+		return fallbackName || 'unknown';
+	}
+
+	if (chatId.includes('@g.us')) {
+		const groupChat = await getGroupChat(chatId);
+		return groupChat?.name || chatId;
+	}
+
+	return fallbackName || chatId;
+};
+
+const handleSystemMessage = async (
+	msg: any,
+	event: BaileysMessageEvent,
+	waSocket: ReturnType<typeof makeWASocket>
+) => {
+	await saveLidMappingsFromMessage(msg);
+
+	if (event.kind === 'group_update') {
+		await refreshGroupMetadata(waSocket, msg.key.remoteJid);
+	}
+
+	console.log(`Mensagem ignorada: ${getLoggedEventType(event)}`);
+};
+
+const handleProtocolMessage = async (
+	msg: any,
+	event: BaileysMessageEvent
+) => {
+	await saveLidMappingsFromMessage(msg);
+
+	if (event.kind === 'protocol_edit') {
+		await handleEditMessage(msg);
+	}
+
+	console.log(`Mensagem ignorada: ${getLoggedEventType(event)}`);
+};
+
+const handleMessageSideEffect = async (
+	msg: any,
+	event: BaileysMessageEvent,
+	waSocket: ReturnType<typeof makeWASocket>,
+	boundary: ReturnType<typeof createBoundary>
+) => {
+	await saveLidMappingsFromMessage(msg);
+
+	if (event.kind === 'reaction') {
+		const reaction = event.content?.reactionMessage;
+		const contact = await createContactPayload(msg, waSocket);
+		boundary.emitForwardableEvent('chat_message_reaction', {
+			chatId: reaction?.key?.remoteJid || msg.key.remoteJid,
+			messageId: reaction?.key?.id,
+			emoji: reaction?.text || '',
+			from: contact.id,
+			fromHostAccount: contact.isHostAccount,
+			timestamp: Date.now(),
+			contact,
+		});
+
+		const chatName = await getLoggedChatName(msg.key.remoteJid, msg.pushName);
+		console.log(
+			`React: [${chatName}]: ${reaction?.text || '<removed>'} | ${reaction?.key?.id || 'unknown'}`
+		);
+		return;
+	}
+
+	console.log(`Mensagem ignorada: ${getLoggedEventType(event)}`);
+};
+
+const handleUserMessage = async (
+	msg: any,
+	event: BaileysMessageEvent,
+	waSocket: ReturnType<typeof makeWASocket>,
+	boundary: ReturnType<typeof createBoundary>,
+	shouldEmitMessages: boolean
+) => {
+	const messageId = msg.key.id;
+	if (!messageId) {
+		return;
+	}
+
+	if (processingMessageIds.has(messageId)) {
+		console.log(`[messages.upsert] skipping in-flight duplicate ${messageId}`);
+		return;
+	}
+
+	if (await messageExists(messageId)) {
+		console.log(`[messages.upsert] skipping stored duplicate ${messageId}`);
+		return;
+	}
+
+	processingMessageIds.add(messageId);
+
+	try {
+		await saveLidMappingsFromMessage(msg);
+		const messageContent = getMessageContent(msg);
+		if (messageContent?.stickerMessage) {
+			messageContent.stickerMessage.url = `https://mmg.whatsapp.net${messageContent.stickerMessage.directPath}`;
+		}
+
+		const payload = await createMessagePayload(msg, waSocket);
+
+		if (payload.contact.isBlocked) {
+			return;
+		}
+
+		if (isGroupLikeChatId(payload.chatId)) {
+			if (!isGroupChatId(payload.chatId)) {
+				await saveGroupChat(createGroupChatPayload({ id: payload.chatId }));
+			} else {
+				await refreshGroupMetadata(waSocket, payload.chatId);
+			}
+		} else {
+			await savePrivateChat({ id: payload.chatId });
+		}
+
+		const chatName = await getPayloadChatName(payload);
+		console.log(
+			`Mensagem: [${chatName}]: ${formatLoggedBody(payload.body, payload.messageType)} | ${payload.messageType}`
+		);
+
+		await saveMessage(payload, msg);
+
+		if (shouldEmitMessages) {
+			boundary.emitMessage(payload);
+			boundary.emitForwardableEvent('chat_message_received', payload);
+		} else {
+			console.log(
+				`[messages.upsert] stored ${messageId} without emit for type=append`
+			);
+		}
+
+		const lastMessagePreview = getMessagePreview(payload);
+		const lastMessageTimestamp = new Date().getTime();
+
+		updateChatMetadata({
+			id: payload.chatId,
+			lastMessagePreview,
+			lastMessageTimestamp,
+		});
+
+		boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
+		if (shouldEmitMessages && !payload.fromHostAccount) {
+			const unreadCount = (await getUnreadCount(payload.chatId)) + 1;
+			await updateChatUnreadCount(payload.chatId, unreadCount);
+			boundary.emitForwardableEvent('chat_unread_increment', {
+				chatId: payload.chatId,
+				unreadCount,
+				lastMessagePreview,
+				lastMessageTimestamp,
+			});
+		}
+	} finally {
+		processingMessageIds.delete(messageId);
+	}
+};
+
+const handlePinnedMessage = async (
+	msg: any,
+	boundary: ReturnType<typeof createBoundary>
+) => {
+	const pinInChatMessage = getPinInChatMessage(msg);
+	if (!pinInChatMessage) {
+		return false;
+	}
+
+	const chatId = pinInChatMessage.key?.remoteJid || msg.key.remoteJid;
+	const pinnedMessageId = pinInChatMessage.key?.id ?? null;
+	const isUnpin =
+		pinInChatMessage.type === proto.Message.PinInChatMessage.Type.UNPIN_FOR_ALL;
+	const pinnedMessage =
+		!isUnpin && pinnedMessageId ? await getMessage(pinnedMessageId) : null;
+
+	if (chatId) {
+		updateChatMetadata({
+			id: chatId,
+			pinnedMessageId: isUnpin ? null : pinnedMessageId,
+		});
+
+		boundary.emitForwardableEvent('chat_pinned_message', {
+			chatId,
+			messageId: isUnpin ? null : pinnedMessageId,
+			message: pinnedMessage,
+		});
+	}
+
+	return true;
+};
+
+const dispatchBaileysMessage = async (
+	msg: any,
+	waSocket: ReturnType<typeof makeWASocket>,
+	boundary: ReturnType<typeof createBoundary>,
+	shouldEmitMessages: boolean
+) => {
+	if (await handlePinnedMessage(msg, boundary)) {
+		return;
+	}
+
+	if (getPollUpdateMessage(msg)) {
+		await saveLidMappingsFromMessage(msg);
+		return;
+	}
+
+	const event = classifyBaileysMessage(msg);
+
+	switch (event.kind) {
+		case 'user_message':
+			await handleUserMessage(msg, event, waSocket, boundary, shouldEmitMessages);
+			return;
+		case 'protocol_edit':
+		case 'protocol_revoke':
+		case 'protocol':
+			await handleProtocolMessage(msg, event);
+			return;
+		case 'reaction':
+		case 'poll_creation':
+		case 'poll_update':
+			await handleMessageSideEffect(msg, event, waSocket, boundary);
+			return;
+		case 'group_update':
+		case 'system':
+			await handleSystemMessage(msg, event, waSocket);
+			return;
+		case 'empty':
+		case 'unsupported':
+			await saveLidMappingsFromMessage(msg);
+			console.log(`Mensagem ignorada: ${getLoggedEventType(event)}`);
+			return;
+	}
+};
 
 export const getGroupData = async (
 	id: string,
@@ -167,16 +472,22 @@ export const getGroupData = async (
 
 const sessionEvents = (
 	waSocket: ReturnType<typeof makeWASocket>,
-	saveCreds: any,
+	saveCreds: () => Promise<void>,
 	boundary: ReturnType<typeof createBoundary>
 ) => {
 	waSocket.ev.on('creds.update', () => {
-		saveCreds();
+		saveCreds().catch(error => {
+			console.warn('[baileys] failed to save credentials:', error);
+		});
 	});
 
 	waSocket.ev.on('connection.update', (update: any) => {
 		try {
-			console.log('CONNECTION UPDATED =>', update);
+			if (activeSocket && waSocket !== activeSocket) {
+				return;
+			}
+
+			logConnectionUpdate(update);
 
 			if (update.qr) {
 				boundary.emitForwardableEvent('qr_code', update.qr);
@@ -202,6 +513,10 @@ const sessionEvents = (
 				DisconnectReason.loggedOut;
 
 			if (connection === 'close' && loggedOut) {
+				Context.upsert({
+					ready: false,
+					qr: null,
+				});
 				clearActiveSocket(waSocket);
 				return;
 			}
@@ -226,38 +541,32 @@ const sessionEvents = (
 				await saveLidMappings(payload.lidPnMappings);
 			}
 
-			payload.messages.forEach(async (msg: any) => {
-				if (isUndecryptableMessage(msg)) {
-					return;
-				}
+			for (const msg of payload.messages ?? []) {
+				await dispatchBaileysMessage(msg, waSocket, boundary, false);
+			}
 
-				await saveLidMappingsFromMessage(msg);
-				const payload = await createMessagePayload(msg, waSocket);
-				await saveMessage(payload, msg);
-			});
-
-			payload.contacts.forEach(async (contact: any) => {
+			for (const contact of payload.contacts ?? []) {
 				const payload = await createContactFromSync(contact);
 				await saveContact(payload);
 
 				if (payload.isGroup) {
 					if (!isGroupChatId(payload.id)) {
 						await saveGroupChat(createGroupChatPayload({ id: payload.id }));
-						return;
+						continue;
 					}
 
 					const groupData = await getGroupData(payload.id, waSocket);
 					if (!groupData) {
-						return;
+						continue;
 					}
 
 					await saveGroupChat(createGroupChatPayload(groupData));
 				}
-			});
+			}
 
-			payload.chats.forEach(async (chat: any) => {
+			for (const chat of payload.chats ?? []) {
 				updateChatUnreadCount(chat.id, chat.unreadCount);
-			});
+			}
 
 		} catch (e) {
 			console.warn(e);
@@ -294,111 +603,11 @@ const sessionEvents = (
 	});
 
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
-		for (const msg of upsert.messages) {
-			if (isUndecryptableMessage(msg)) {
-				continue;
-			}
+		const shouldEmitMessages = !upsert.type || upsert.type === 'notify';
 
-			console.log(`processando mensagem ${msg.key.id}`);
-			await saveLidMappingsFromMessage(msg);
-			if (msg.message?.stickerMessage) {
-				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`;
-			}
-
+		for (const msg of upsert.messages ?? []) {
 			try {
-				const pinInChatMessage = getPinInChatMessage(msg);
-				if (pinInChatMessage) {
-					const chatId = pinInChatMessage.key?.remoteJid || msg.key.remoteJid;
-					const pinnedMessageId = pinInChatMessage.key?.id ?? null;
-					const isUnpin =
-						pinInChatMessage.type ===
-						proto.Message.PinInChatMessage.Type.UNPIN_FOR_ALL;
-					const pinnedMessage =
-						!isUnpin && pinnedMessageId
-							? await getMessage(pinnedMessageId)
-							: null;
-
-					if (chatId) {
-						updateChatMetadata({
-							id: chatId,
-							pinnedMessageId: isUnpin ? null : pinnedMessageId,
-						});
-
-						boundary.emitForwardableEvent('chat_pinned_message', {
-							chatId,
-							messageId: isUnpin ? null : pinnedMessageId,
-							message: pinnedMessage,
-						});
-					}
-
-					continue;
-				}
-
-				const pollUpdateMessage = getPollUpdateMessage(msg);
-				if (pollUpdateMessage) {
-					continue;
-				}
-
-				const reactionMessage = getReactionMessage(msg);
-				if (reactionMessage) {
-					const contact = await createContactPayload(msg, waSocket);
-					boundary.emitForwardableEvent('chat_message_reaction', {
-						chatId: reactionMessage.key?.remoteJid || msg.key.remoteJid,
-						messageId: reactionMessage.key?.id,
-						emoji: reactionMessage.text || '',
-						from: contact.id,
-						fromHostAccount: contact.isHostAccount,
-						timestamp: Date.now(),
-						contact,
-					});
-					continue;
-				}
-
-				const payload = await createMessagePayload(msg, waSocket);
-
-				if (payload.contact.isBlocked) {
-					return;
-				}
-
-				if (isGroupLikeChatId(payload.chatId)) {
-					if (!isGroupChatId(payload.chatId)) {
-						await saveGroupChat(createGroupChatPayload({ id: payload.chatId }));
-					}
-				}
-
-					if (isGroupChatId(payload.chatId)) {
-						const chatMetadata = await getGroupData(payload.chatId, waSocket);
-						if (chatMetadata) {
-							await saveGroupChat(createGroupChatPayload(chatMetadata));
-						}
-					} else if (!isGroupLikeChatId(payload.chatId)) {
-						savePrivateChat({ id: payload.chatId });
-					}
-
-				await saveMessage(payload, msg);
-				boundary.emitMessage(payload);
-				boundary.emitForwardableEvent('chat_message_received', payload);
-
-				const lastMessagePreview = getMessagePreview(payload);
-				const lastMessageTimestamp = new Date().getTime();
-
-				updateChatMetadata({
-					id: payload.chatId,
-					lastMessagePreview,
-					lastMessageTimestamp,
-				});
-
-				boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
-				if (!payload.fromHostAccount) {
-					const unreadCount = (await getUnreadCount(payload.chatId)) + 1;
-					await updateChatUnreadCount(payload.chatId, unreadCount);
-					boundary.emitForwardableEvent('chat_unread_increment', {
-						chatId: payload.chatId,
-						unreadCount,
-						lastMessagePreview,
-						lastMessageTimestamp,
-					});
-				}
+				await dispatchBaileysMessage(msg, waSocket, boundary, shouldEmitMessages);
 			} catch (e) {
 				console.warn(e);
 			}

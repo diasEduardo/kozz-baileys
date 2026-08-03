@@ -36,6 +36,18 @@ const run = (db: SqliteDatabase, sql: string, params: unknown[] = []) =>
 		});
 	});
 
+const close = (db: SqliteDatabase) =>
+	new Promise<void>((resolve, reject) => {
+		db.close(err => {
+			if (err) {
+				reject(err);
+				return;
+			}
+
+			resolve();
+		});
+	});
+
 const get = <T>(db: SqliteDatabase, sql: string, params: unknown[] = []) =>
 	new Promise<T | undefined>((resolve, reject) => {
 		db.get(sql, params, (err, row) => {
@@ -45,6 +57,18 @@ const get = <T>(db: SqliteDatabase, sql: string, params: unknown[] = []) =>
 			}
 
 			resolve(row as T | undefined);
+		});
+	});
+
+const all = <T>(db: SqliteDatabase, sql: string, params: unknown[] = []) =>
+	new Promise<T[]>((resolve, reject) => {
+		db.all(sql, params, (err, rows) => {
+			if (err) {
+				reject(err);
+				return;
+			}
+
+			resolve(rows as T[]);
 		});
 	});
 
@@ -162,6 +186,38 @@ const migrateMultiFileAuthState = async (
 	}
 
 	console.log(`Migrated ${jsonFiles.length} Baileys auth files into SQLite`);
+};
+
+export const resetSqliteAuthState = async (
+	dbPath = appPaths.authDbPath,
+	multiFileAuthDir = appPaths.credsDir
+) => {
+	const db = createDatabase(dbPath);
+	try {
+		await initAuthDatabase(db);
+		const rows = await all<{ key: string }>(
+			db,
+			'SELECT key FROM baileys_auth_state'
+		);
+		await run(db, 'DELETE FROM baileys_auth_state');
+
+		const legacyFiles = await fs.readdir(multiFileAuthDir).catch(() => []);
+		const deletedLegacyFiles = await Promise.all(
+			legacyFiles
+				.filter(file => file.endsWith('.json'))
+				.map(async file => {
+					await fs.unlink(path.join(multiFileAuthDir, file)).catch(() => undefined);
+					return file;
+				})
+		);
+
+		return {
+			sqliteKeysDeleted: rows.length,
+			legacyFilesDeleted: deletedLegacyFiles.length,
+		};
+	} finally {
+		await close(db);
+	}
 };
 
 export const useSqliteAuthState = async (
