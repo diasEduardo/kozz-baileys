@@ -277,6 +277,7 @@ export const getRecentChatMessagesWithMedia = async ({
 
 export type MessageCountByContact = {
 	contactId: string;
+	name: string;
 	count: number;
 	aliases: string[];
 };
@@ -337,6 +338,11 @@ export const getMessageCountByContact = async ({
 
 		mergedCounts[canonicalContactId] = {
 			contactId: canonicalContactId,
+			name:
+				mergedCounts[canonicalContactId]?.name ??
+				(contact?.privateName ||
+					contact?.publicName ||
+					canonicalContactId.replace(/@(lid|s\.whatsapp\.net)$/, '')),
 			count: (mergedCounts[canonicalContactId]?.count ?? 0) + count,
 			aliases: [
 				...(mergedCounts[canonicalContactId]?.aliases ?? []),
