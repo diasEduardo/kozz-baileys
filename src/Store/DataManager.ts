@@ -23,7 +23,7 @@ export const initDatabase = () => {
 			groupParticipantMetadataSchema,
 			groupParticipantUpdateSchema,
 		],
-		schemaVersion: 10,
+		schemaVersion: 12,
 	};
 
 	const instance = new Realm(config);

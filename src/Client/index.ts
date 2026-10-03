@@ -15,7 +15,7 @@ import log from 'baileys/lib/Utils/logger.js';
 import { Boom } from '@hapi/boom';
 import { saveGroupChat, updateChatUnreadCount } from 'src/Store/ChatStore.js';
 import Context, { setMeFromCreds } from 'src/Context/index.js';
-import { saveMessage } from 'src/Store/MessageStore.js';
+import {  saveMessage } from 'src/Store/MessageStore.js';
 import {
 	createContactFromSync,
 	createGroupChatPayload,
@@ -47,9 +47,10 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary.default>) 
 	const { state, saveCreds } = await useMultiFileAuthState('./creds');
 	console.log('Done');
 	let { version, isLatest } = await fetchLatestBaileysVersion();
-	//version = [2, 3000, 1029030078];
+	version = [2, 3000, 1043857759];
 	//version = [2, 3000, 1027934701];
-	//isLatest = false;
+	//version = [2, 3000, 1042626022];
+	isLatest = false;
 	console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
 	 waSocket = makeWASocket({
@@ -64,7 +65,7 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary.default>) 
 		generateHighQualityLinkPreview: true,
 		// syncFullHistory: true,
 		logger,
-		browser: Browsers.ubuntu('Desktop'),
+		browser: Browsers.windows('firefox'),
 	});
 	setMeFromCreds();
 	sessionEvents(waSocket, saveCreds, boundary);
@@ -89,6 +90,8 @@ const sessionEvents = (
 	waSocket.ev.on('creds.update', () => {
 		saveCreds();
 	});
+
+	//waSocket.ev.process(async (events) => {console.log(events,JSON.stringify(events))})
 
 	waSocket.ev.on('connection.update', (update: any) => {
 		try {
@@ -174,6 +177,7 @@ const sessionEvents = (
 			if (msg.message?.stickerMessage) {
 				msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`;
 			}
+			
 			try {
 				const payload = await createMessagePayload(msg, waSocket);
 				if (Context.get('blockedList').includes(payload.from)) {
@@ -279,3 +283,5 @@ export const updateGroupData = async (id: string )=>{
 		await saveGroupChat(createGroupChatPayload(groupData));
 		
 	}
+
+

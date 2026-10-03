@@ -4,6 +4,7 @@ import Context from 'src/Context/index.js';
 import { getContact } from 'src/Store/ContactStore.js';
 import { getMessage, saveEditedMessage, saveMessage } from 'src/Store/MessageStore.js';
 import { downloadMediaFromMessage } from 'src/util/media.js';
+import { decryptEditedMessage } from 'src/util/message.js';
 import { clearContact, replaceTaggedName } from 'src/util/utility.js';
 
 export const stringifyMessageId = (messageKey: proto.IMessageKey): string => {
@@ -70,9 +71,18 @@ export const createMessagePayload = async (
 	message: WAMessage,
 	waSocket: WASocket
 ): Promise<MessageReceived & { originalMessagePayload?: string, originalEditMessageList?: string[] }> => {
-	if(message.message?.protocolMessage?.type == proto.Message.ProtocolMessage.Type.MESSAGE_EDIT ){
-		const editedId = message.message?.protocolMessage?.key?.id!;
+	const secEncMsg = message.message?.secretEncryptedMessage;
+	let decrypted:any = '';
+	if(secEncMsg?.secretEncType == proto.Message.SecretEncryptedMessage.SecretEncType.MESSAGE_EDIT ){
+		const editedId = secEncMsg?.targetMessageKey?.id!;
+							
 		let editedMsg = await getMessage(editedId);
+		const msgSecret = editedMsg?.messageSecret;
+		if(msgSecret){
+			
+			const msgSec:Uint8Array<ArrayBufferLike> = Buffer.from(editedMsg?.messageSecret, 'base64');
+			decrypted = decryptEditedMessage(secEncMsg, { secret: msgSec, id: editedId, sender: editedMsg?.from })
+		}
 		
 		if (editedMsg) {					
 			const editedMessageBody =
@@ -80,6 +90,8 @@ export const createMessagePayload = async (
 				message.message?.protocolMessage?.editedMessage?.extendedTextMessage?.text ||
 				message.message?.protocolMessage?.editedMessage?.imageMessage?.caption ||
 				message.message?.protocolMessage?.editedMessage?.videoMessage?.caption ||
+				message.message?.protocolMessage?.editedMessage?.conversation ||
+				decrypted.protocolMessage?.editedMessage?.conversation ||
 				'';
 			editedMsg.body = editedMessageBody;
 
@@ -106,19 +118,14 @@ export const createMessagePayload = async (
 			originalEditList.push(JSON.stringify(message))
 			
 			editedMsg.originalEditMessageList = originalEditList;
-			
+			//console.log(editedId, editedMsg, originalEditList);	
 			await saveEditedMessage(editedId, editedMsg, originalEditList);
 
 			if((process.env.RESEND_ON_EDIT || 'false') == 'true'){
 				return editedMsg;
 			}
 		}
-
-		
-		
-	
 	}
-	
 
 	const media = await downloadMediaFromMessage(message, waSocket);
 	const contact = await createContactPayload(message);
@@ -130,6 +137,7 @@ export const createMessagePayload = async (
 		message?.message?.imageMessage?.caption ||
 		message?.message?.videoMessage?.caption ||
 		message?.message?.ephemeralMessage?.message?.extendedTextMessage?.text ||
+		decrypted.editedMessage ||
 		'';
 
 	let taggedConctactFriendlyBody = messageBody;
@@ -158,6 +166,11 @@ export const createMessagePayload = async (
 
 	const id = message.key.id!;
 	const quotedMessageId = contextInfo?.stanzaId!;
+	const messageSecretArray = message.message?.messageContextInfo?.messageSecret;
+	let messageSecret = '';
+	if(messageSecretArray)
+	 messageSecret = Buffer.from(messageSecretArray).toString('base64');
+
 
 	const quotedMessage = quotedMessageId
 		? await getMessage(quotedMessageId)
@@ -241,6 +254,7 @@ export const createMessagePayload = async (
 			new Date(Number(message.messageTimestamp)).getTime() || new Date().getTime(),
 		taggedConctactFriendlyBody: taggedConctactFriendlyBody,
 		media,
+		messageSecret
 	};
 };
 
@@ -308,3 +322,4 @@ export const createGroupChatPayload = (
 		lastMessageTimestamp: ogChatPayload.lastMessageTimestamp ?? 0,
 	};
 };
+

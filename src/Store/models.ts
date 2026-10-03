@@ -52,6 +52,7 @@ export const messageSchema = {
 		messageType: 'string',
 		isViewOnce: 'bool',
 		taggedContacts: 'string',
+		messageSecret: 'string',
 		originalMessagePayload: 'string',
 	},
 };
