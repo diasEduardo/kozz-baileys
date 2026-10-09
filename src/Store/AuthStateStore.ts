@@ -1,118 +1,143 @@
-import Context from 'src/Context/index.js';
-import { CredsModel } from './models.js';
+import {
+	initAuthCreds,
+	BufferJSON,
+	makeCacheableSignalKeyStore,
+} from 'baileys';
 
-const database = Context.get('database');
+import Context from 'src/Context/index.js';
+import { CredsModel, KeysModel } from './models.js';
+
+const database = Context.get('databaseCreds');
+
+const SESSION_ID = 'kozz-baileys';
+
+/**
+ * Credentials
+ */
 
 export const saveCreds = async (creds: CredsModel): Promise<string> => {
 	await database.upsert('creds', {
-		...creds,
-	});
+    id: creds.id,
+    data: JSON.stringify(creds, BufferJSON.replacer),
+  });
 
-	return creds.id;
+	return SESSION_ID;
 };
 
 export const getCreds = async (): Promise<CredsModel | null> => {
-	const creds = (await database.getValues('creds',  (data:CredsModel) => true)) as CredsModel[] | null;
-	if (!creds) {
+	const creds = database.getValues(
+		'creds',
+		(data: CredsModel) => data.id === SESSION_ID
+	) as CredsModel | null;
+
+	if (!creds?.length) {
 		return null;
 	}
 
-	return creds[0];
+	return JSON.parse(
+		creds[0].data,
+		BufferJSON.reviver
+	);
 };
-/*
-export  async function useRealmDBAuthStore() {
 
-	async function writeData(data, key) {
-			const dataString = JSON.stringify(data, BufferJSON.replacer);
+/**
+ * Signal keys
+ */
 
-			if (key != 'creds') {
-					await fs.writeFile(localFile(key), dataString)
-					return;
-			}
-			await saveKey(sessionID, dataString)
-			return;
-	};
+const getKey = (
+	type: string,
+	id: string,
+) => `${SESSION_ID}:${type}:${id}`;
 
-	async function readData(key) {
-			try {
 
-					let rawData;
+const getKeys = async (
+	type: string,
+	ids: string[],
+) => {
+	const result: Record<string, any> = {};
 
-					if (key != 'creds') {
-							if (!(await fileExists(localFile(key)))) return null;
-							rawData = await fs.readFile(localFile(key), { encoding: 'utf-8' })
-					} else {
-							rawData = (await getAuthKey(sessionID))
-					}
+	const keys = database.getValues(
+		'keys',
+		(data: KeysModel) => data.sessionId === SESSION_ID &&
+			data.type === type &&
+			ids.includes(data.keyId)
+	) as KeysModel[] | null;
 
-					const parsedData = JSON.parse(rawData, BufferJSON.reviver);
-					return parsedData;
-			} catch (error) {
-					return null;
-			}
+	for (const id of ids) {
+		const key = keys?.find(
+			(item) => item.keyId === id
+		);
+
+		if (key) {
+			result[id] = JSON.parse(
+				key.value,
+				BufferJSON.reviver
+			);
+		} else {
+			result[id] = null;
+		}
 	}
 
-	async function removeData(key) {
-			try {
-					if (key != 'creds') {
-							await fs.unlink(localFile(key))
-					} else {
-							await deleteAuthKey(sessionID)
-					}
-			} catch (error) {
-					return;
-			}
-	}
+	return result;
+};
 
-	let creds = await readData('creds');
+
+const setKeys = async (
+	data: Record<string, Record<string, any>>,
+) => {
+	for (const [type, entries] of Object.entries(data)) {
+		for (const [id, value] of Object.entries(entries)) {
+
+			const key = getKey(type, id);
+
+			if (value === null || value === undefined) {
+				database.deleteValues(
+					'keys',
+					(item: KeysModel) => item.id === key
+				);
+
+				continue;
+			}
+
+			await database.upsert('keys', {
+				id: key,
+				sessionId: SESSION_ID,
+				type,
+				keyId: id,
+				value: JSON.stringify(
+					value,
+					BufferJSON.replacer
+				),
+			});
+		}
+	}
+};
+
+export const useRealmDBAuthStore = async () => {
+
+	let creds = await getCreds();
+
 	if (!creds) {
-			creds = initAuthCreds();
-			await writeData(creds, 'creds');
+		creds = {
+			...initAuthCreds(),
+			id: SESSION_ID,
+		} as CredsModel;
+
+		await saveCreds(creds);
 	}
+
+	const keys = {
+		get: getKeys,
+
+		set: setKeys,
+	};
 
 	return {
 		state: {
 			creds,
-			keys: {
-				get: async (type:string, ids:number[]) => {
-					const data:any = {};
-					await Promise.all(ids.map(async (id) => {
-						let value = await readData(`${type}-${id}`);
-						if (type === 'app-state-sync-key' && value) {
-							value = 1//proto.Message.AppStateSyncKeyData.fromObject(value);
-						}
-
-						data[id] = value;
-					}));
-					return data;
-				},
-				set: async (data:any) => {
-						const tasks = [];
-						for (const category in data) {
-
-								for (const id in data[category]) {
-
-										const value = data[category][id];
-										const key = `${category}-${id}`;
-
-										tasks.push(value ? writeData(value, key) : removeData(key));
-								}
-						}
-						await Promise.all(tasks);
-				}
-			}
+			keys,
 		},
-		saveCreds: saveCreds
-		}
+
+		saveCreds: () => saveCreds(creds!),
+	};
 };
-
-
-export const deleteFromChatMetadataDb = async () => {
-	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
-	const pugeDate = new Date();
-	pugeDate.setDate(pugeDate.getDate() - (dayOffset as any));
-
-	database.deleteValues('chatMetadata', (metadata:any) => metadata.lastMessageTimestamp < pugeDate.getTime());
-	
-}
-*/

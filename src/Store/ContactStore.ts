@@ -20,3 +20,12 @@ export const getContact = async (id: string): Promise<ContactModel | null> => {
 
 	return contact;
 };
+
+export const deleteFromContactDb = async () => {
+	const excluded = ['no_name','',]
+	database.deleteValues('contact', (msg:any) => 
+																						excluded.includes(msg.publicName.trim())
+																						|| msg.id.endsWith('@s.whatsapp.net')
+																		);
+	
+}

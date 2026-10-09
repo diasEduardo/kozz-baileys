@@ -227,7 +227,7 @@ const baileysFunctions = (client: WaSocket) => {
 			ogMessage.originalMessagePayload
 		) as proto.IWebMessageInfo;
 
-		return client.sendMessage(ogPayload.key.remoteJid!, {
+		return client.sendMessage(ogPayload?.key?.remoteJid!, {
 			react: {
 				key: ogPayload.key,
 				text: emoji,
@@ -244,7 +244,7 @@ const baileysFunctions = (client: WaSocket) => {
 			return undefined;
 		}
 	};
-
+	
 	const deleteMessage = async (messageId: string) => {
 		try {
 			const ogMessage = await getMessage(messageId);
@@ -256,8 +256,13 @@ const baileysFunctions = (client: WaSocket) => {
 				ogMessage.originalMessagePayload
 			) as proto.IWebMessageInfo;
 
-			const response = await client.sendMessage(ogPayload.key.remoteJid!, {
-				delete: ogPayload.key,
+			const key = ogPayload.key;
+			if (!key?.remoteJid) {
+				return;
+			}
+			
+			const response = await client.sendMessage(ogPayload?.key?.remoteJid!, {
+				delete: key,
 			});
 			return response;
 		} catch (e) {
@@ -265,6 +270,7 @@ const baileysFunctions = (client: WaSocket) => {
 			return undefined;
 		}
 	};
+	
 
 	return {
 		checkNumber,

@@ -4,16 +4,15 @@ import { ContactModel, GroupChatModel, groupParticipantMetadata, groupParticipan
 import moment from 'moment/moment.js';
 
 const database = Context.get('database');
+const databaseMetadata = Context.get('databaseMetadata');
 
 export const updateGroupParticipantMetadata = async (from:string, to:string, fromName:string): Promise<string> => {
 	
-	/*await database.upsert('contact', {
-		...contact,
-	});*/
+
 	const today = moment().format('YYYY-MM-DD');
 	const id = `${from}_${to}_${today}`;
 	let count = 1;
-	const existingEntry = await database.getById(
+	const existingEntry = await databaseMetadata.getById(
 		'groupParticipantMetadata',
 		id
 	) as groupParticipantMetadata | null;
@@ -31,7 +30,7 @@ export const updateGroupParticipantMetadata = async (from:string, to:string, fro
 			messageCount: count
 		} as groupParticipantMetadata
 	
-	await database.upsert('groupParticipantMetadata', {
+	await databaseMetadata.upsert('groupParticipantMetadata', {
 		...data,
 	});
 
@@ -66,9 +65,37 @@ export const insertGroupParticipantUpdate = async (
 			action: payload.action
 		} as groupParticipantUpdate
 	
-	await database.upsert('groupParticipantUpdate', {
+	await databaseMetadata.upsert('groupParticipantUpdate', {
 		...data,
 	});
 
 	return id;
 };
+
+export const deleteFromGroupParticipantUpdateDb = async () => {
+	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
+	let purgeDate = moment().subtract(dayOffset, 'days');
+	let currentDate = purgeDate.format('YYYY-MM-DD')
+	let count = 1;
+
+	while (count > 0){
+ 		count	= databaseMetadata.deleteValues('groupParticipantUpdate', (msg:any) => msg.date == currentDate);
+		purgeDate = purgeDate.subtract(1, 'days');
+		currentDate = purgeDate.format('YYYY-MM-DD')
+	}
+	
+}
+
+export const deleteFromGroupParticipantMetadataDb = async () => {
+	const dayOffset = process.env.DATABASE_ANALYTIC_STORED_DAYS || 30;
+	let purgeDate = moment().subtract(dayOffset, 'days');
+	let currentDate = purgeDate.format('YYYY-MM-DD')
+	let count = 1;
+
+	while (count > 0){
+ 		count	= databaseMetadata.deleteValues('groupParticipantMetadata', (msg:any) => msg.date == currentDate);
+		purgeDate = purgeDate.subtract(1, 'days');
+		currentDate = purgeDate.format('YYYY-MM-DD')
+	}
+	
+}

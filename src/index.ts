@@ -11,6 +11,8 @@ import fs from 'fs/promises';
 import { deleteFromChatMetadataDb } from './Store/MetadataStore.js';
 import { deleteFromMessageDb } from './Store/MessageStore.js';
 import { deleteFromGroupChatDb } from './Store/ChatStore.js';
+import { deleteFromContactDb } from './Store/ContactStore.js';
+import { deleteFromGroupParticipantMetadataDb, deleteFromGroupParticipantUpdateDb } from './Store/groupParticipantMetadata.js';
 
 export const boundary = createBoundary.default({
 	url: process.env.GATEWAY_URL || 'ws://localhost:4521',
@@ -93,32 +95,44 @@ initSession(boundary).then((waSocket:any) => {
 
 if(process.env.MUST_DELETE_MIDIA == 'true'){
 	CronJob.from({
-		cronTime: '0 */1 * * * *',
+		cronTime: '0 */5 * * * *',
 		onTick: deleteFromMediaFolder,
 		start: true,
 		timeZone: 'America/Sao_Paulo',
 	});
 	CronJob.from({
-		cronTime: '0 */1 * * * *',
+		cronTime: '0 */5 * * * *',
 		onTick: deleteFromMediaDb,
 		start: true,
 		timeZone: 'America/Sao_Paulo',
 	});
 	CronJob.from({
-		cronTime: '0 */1 * * * *',
+		cronTime: '0 */5 * * * *',
 		onTick: deleteFromChatMetadataDb,
 		start: true,
 		timeZone: 'America/Sao_Paulo',
 	});
 	CronJob.from({
-		cronTime: '0 */1 * * * *',
+		cronTime: '0 */10 * * * *',
 		onTick: deleteFromMessageDb,
 		start: true,
 		timeZone: 'America/Sao_Paulo',
 	});
 	CronJob.from({
-		cronTime: '0 */1 * * * *',
-		onTick: deleteFromGroupChatDb,
+		cronTime: '0 0 0,12 * * *',
+		onTick: deleteFromContactDb,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
+	CronJob.from({
+		cronTime: '0 0 1,13 * * *',
+		onTick: deleteFromGroupParticipantUpdateDb,
+		start: true,
+		timeZone: 'America/Sao_Paulo',
+	});
+	CronJob.from({
+		cronTime: '0 0 2,14 * * *',
+		onTick: deleteFromGroupParticipantMetadataDb,
 		start: true,
 		timeZone: 'America/Sao_Paulo',
 	});

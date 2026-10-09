@@ -1,31 +1,8 @@
 import Realm from 'realm';
-import {
-	contactSchema,
-	EntityMap,
-	groupChatSchema,
-	mediaSchema,
-	messageSchema,
-	privateChatSchema,
-	chatMetadataModel,
-	groupParticipantMetadataSchema,
-	groupParticipantUpdateSchema,
-} from './models.js';
+import { EntityMap } from './models.js';
 
-export const initDatabase = () => {
-	const config = {
-		schema: [
-			contactSchema,
-			mediaSchema,
-			messageSchema,
-			groupChatSchema,
-			chatMetadataModel,
-			privateChatSchema,
-			groupParticipantMetadataSchema,
-			groupParticipantUpdateSchema,
-		],
-		schemaVersion: 12,
-	};
-
+export const initDatabase = (config:Realm.Configuration) => {
+	
 	const instance = new Realm(config);
 
 	/**
@@ -56,6 +33,30 @@ export const initDatabase = () => {
 				)} with data ${data}. No database transaction was done. Error = ${e}`
 			);
 			return undefined;
+		}
+	};
+	const upsertMany = <Type extends keyof EntityMap>(
+		entityType: Type,
+		dataList: (Partial<EntityMap[Type]> & { id: string })[]
+	) => {
+		try {
+			let obj = {} as EntityMap[Type];
+			instance.write(() => {
+				dataList.forEach((item:Partial<EntityMap[Type]> & { id: string }) => {
+												instance.create(String(entityType), { ...item }, Realm.UpdateMode.All)
+										});
+			});
+
+			return true;
+		} catch (e) {
+			console.warn(
+				`Error while upserting ${JSON.stringify(
+					dataList,
+					undefined,
+					'  '
+				)} with data ${dataList}. No database transaction was done. Error = ${e}`
+			);
+			return false;
 		}
 	};
 
@@ -134,11 +135,57 @@ export const initDatabase = () => {
 		}
 	};
 
+	const getNext = <Type extends keyof EntityMap>(
+		entityType: Type
+	): any => {
+		try {
+			let next = undefined;
+			instance.write(() => {
+				next = instance
+										.objects(String(entityType))
+										.filtered('isProcessing == false')
+										.sorted('timestamp', false)[0];
+				if (!next) {
+					return;
+				}
+
+				next.isProcessing = true;
+
+			});
+
+			return next;
+				
+		} catch (e) {
+			console.warn(
+				`Error while fetching ${String(entityType)}. No database transaction was done. Error = ${e}`
+			);
+			return undefined;
+		}
+	};
+
+	const getAll = <Type extends keyof EntityMap>(
+		entityType: Type
+	): any => {
+		try {
+			return instance
+				.objects(String(entityType))
+				.map(obj => obj.toJSON() as EntityMap[Type]);
+		} catch (e) {
+			console.warn(
+				`Error while fetching ${String(entityType)}. No database transaction was done. Error = ${e}`
+			);
+			return undefined;
+		}
+	};
 	return {
 		upsert,
 		getValues,
 		deleteValues,
 		getById,
 		getSorted,
+		getNext,
+		upsertMany,
+		getAll
 	};
 };
+

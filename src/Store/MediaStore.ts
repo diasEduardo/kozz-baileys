@@ -60,10 +60,10 @@ export const deleteFromMediaFolder = async () => {
 						id: midia.id,
 						deleted: true,
 					});
-					console.log(`${midia.id} deleted from folder`)
+					//console.log(`${midia.id} deleted from folder`)
 				} catch(e:any) {
 					if(e.errno == -4058){
-						console.log(`${midia.id} not founded in folder, marking as deleted`);
+						//console.log(`${midia.id} not founded in folder, marking as deleted`);
 						
 						database.upsert('media', {
 							id: midia.id,

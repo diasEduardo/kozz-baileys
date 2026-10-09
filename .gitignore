@@ -6,11 +6,11 @@ user_auth
 .env.dev
 db.sqlite
 medias
-default.realm
-default.realm.lock
-defaul.realm.management
+*.realm
+*.realm.lock
+*.realm.management
 keys
-defaul.realm.note
+*.realm.note
 creds
 .codegpt
 creds.bkp/

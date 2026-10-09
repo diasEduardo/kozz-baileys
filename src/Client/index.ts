@@ -29,6 +29,9 @@ import { getMessagePreview, timestampToHour } from 'src/util/utility.js';
 import { groupMemo } from 'src/util/groupMemo.js';
 import qrCode from 'qrcode';
 import { insertGroupParticipantUpdate } from 'src/Store/groupParticipantMetadata.js';
+import { useRealmDBAuthStore } from 'src/Store/AuthStateStore.js';
+
+const messageQueueMapping = new Map<string, Promise<void>>();
 
 export type WaSocket = ReturnType<typeof makeWASocket>;
 export let waSocket:any;
@@ -45,27 +48,25 @@ const startSocket = async (boundary: ReturnType<typeof createBoundary.default>) 
 
 	console.log('Creating auth...');
 	const { state, saveCreds } = await useMultiFileAuthState('./creds');
+	//const { state, saveCreds } = await useRealmDBAuthStore();
 	console.log('Done');
 	let { version, isLatest } = await fetchLatestBaileysVersion();
-	version = [2, 3000, 1043857759];
+	//version = [2, 3000, 1043857759];
 	//version = [2, 3000, 1027934701];
 	//version = [2, 3000, 1042626022];
-	isLatest = false;
+	//isLatest = false;
 	console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
 	 waSocket = makeWASocket({
 		version,
-		// This option is deprecated!
-		// printQRInTerminal: true,
 		auth: {
 			creds: state.creds,
 			/** caching makes the store faster to send/recv messages */
 			keys: makeCacheableSignalKeyStore(state.keys, logger),
 		},
-		generateHighQualityLinkPreview: true,
-		// syncFullHistory: true,
+		generateHighQualityLinkPreview: false,
 		logger,
-		browser: Browsers.windows('firefox'),
+		browser: Browsers.windows('firefox')
 	});
 	setMeFromCreds();
 	sessionEvents(waSocket, saveCreds, boundary);
@@ -140,6 +141,7 @@ const sessionEvents = (
 	waSocket.ev.on('messaging-history.set', (payload: any) => {
 		try {
 			payload.messages.forEach(async (msg: any) => {
+				console.log(`processando mensagem ${msg.key.id} em ${timestampToHour(msg.messageTimestamp*1000)}`,);
 				const payload = await createMessagePayload(msg, waSocket);
 				await saveMessage(payload, msg);
 			});
@@ -170,6 +172,7 @@ const sessionEvents = (
 	waSocket.ev.on('messages.upsert', async (upsert: any) => {
 		
 		for (const msg of upsert.messages) {
+			/*
 			//console.log(JSON.stringify(msg))
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
 			//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message)
@@ -199,7 +202,54 @@ const sessionEvents = (
 			} catch (e) {
 				console.warn(e);
 			}
+			*/
+			const key = msg.key.remoteJid;
+			if (!key) continue;
+			
+			const previous = messageQueueMapping.get(key) ?? Promise.resolve();
+
+			const current = previous
+				.catch(() => {})
+				.then(async () => {
+					//console.log(JSON.stringify(msg))
+				//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessage)
+				//console.log(msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.viewOnceMessageV2?.message)
+				console.log(`processando mensagem ${msg.key.id} em ${timestampToHour(msg.messageTimestamp*1000)}`,);
+				if (msg.message?.stickerMessage) {
+					msg.message.stickerMessage.url = `https://mmg.whatsapp.net${msg.message.stickerMessage.directPath}`;
+				}
+				
+				try {
+					const payload = await createMessagePayload(msg, waSocket);
+					if (Context.get('blockedList').includes(payload.from)) {
+						return;
+					}
+					
+					boundary.emitMessage(payload);
+					await saveMessage(payload, msg);
+
+					updateChatMetadata({
+						id: payload.chatId,
+						lastMessagePreview: getMessagePreview(payload),
+						lastMessageTimestamp: new Date().getTime(),
+					});
+
+					boundary.emitForwardableEvent('chat_order_move_to_top', payload.chatId);
+
+				} catch (e) {
+					console.warn(e);
+				}
+			});
+
+			messageQueueMapping.set(key, current);
+
+			current.finally(() => {
+				if (messageQueueMapping.get(key) === current) {
+					messageQueueMapping.delete(key);
+				}
+			});
 		}
+		
 	});
 
 	waSocket.ev.on('chats.update', async (payload: any) => {
@@ -241,9 +291,9 @@ const sessionEvents = (
 
 	waSocket.ev.on('group-participants.update', async (payload:any) => {
 
-		payload.participants?.forEach((participant:string) => {
+		payload.participants?.forEach((participant:{id:string,PhoneNumber:string,admin:any}) => {
 			insertGroupParticipantUpdate({
-				participantId: participant, 
+				participantId: participant.id, 
 				groupId: payload.id, 
 				authorId: payload.author, 
 				action: payload.action

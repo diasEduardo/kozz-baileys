@@ -185,7 +185,7 @@ export const createMessagePayload = async (
 		
 		//console.log(message.message?.extendedTextMessage)
 	}
-		
+	
 	if(quotedMessageId && quotedMessage){
 		const quoteMessage = {
 			"key": {
@@ -196,6 +196,7 @@ export const createMessagePayload = async (
 			},
 			message:contextInfo?.quotedMessage
 		}
+		
 		const mediaQuote = await downloadMediaFromMessage(quoteMessage, waSocket);
 		
 		if(mediaQuote){
@@ -225,10 +226,11 @@ export const createMessagePayload = async (
 		}
 
 	}
-
+	/*
 	if (messageBody.toLowerCase() === 'teste') {
 		console.log({ id, quotedMessageId, quotedMessage });
 	}
+		*/
 
 	return {
 		body: messageBody,

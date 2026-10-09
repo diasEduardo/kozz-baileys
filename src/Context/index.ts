@@ -1,5 +1,60 @@
 import { initDatabase } from 'src/Store/DataManager.js';
 import { getMyContactFromCredentials } from 'src/util/utility.js';
+import {
+	contactSchema,
+	EntityMap,
+	groupChatSchema,
+	mediaSchema,
+	messageSchema,
+	privateChatSchema,
+	chatMetadataModel,
+	groupParticipantMetadataSchema,
+	groupParticipantUpdateSchema,
+	keysSchema,
+	credsSchema,
+	messageLeaseSchema
+} from 'src/Store/models.js';
+
+const databasePath = "I:/gitProject/my-kozz-bot/kozz-baileys";
+const schemaVersion = 14;
+
+const configCreds = {
+	schema: [
+		keysSchema,
+		credsSchema
+	],
+	path: `${databasePath}/credential.realm`,
+	schemaVersion: schemaVersion,
+};
+
+const config = {
+	schema: [
+		contactSchema,
+		mediaSchema,
+		messageSchema,
+		groupChatSchema,
+		chatMetadataModel
+	],
+	path: `${databasePath}/message.realm`,
+	schemaVersion: schemaVersion,
+};
+
+const configMetadata = {
+	schema: [
+		groupParticipantMetadataSchema,
+		groupParticipantUpdateSchema
+	],
+	path: `${databasePath}/metadata.realm`,
+	schemaVersion: schemaVersion,
+};
+
+const configLease = {
+	schema: [
+		messageLeaseSchema
+	],
+	path: `${databasePath}/lease.realm`,
+	schemaVersion: schemaVersion,
+};
 
 type ContextData = {
 	blockedList: (string|undefined)[];
@@ -9,8 +64,11 @@ type ContextData = {
 		id: string;
 		lid: string;
 		pushName: string;
-	};
+	};	
 	database: ReturnType<typeof initDatabase>;
+	databaseCreds: ReturnType<typeof initDatabase>;
+	databaseMetadata: ReturnType<typeof initDatabase>;
+	databaseLease: ReturnType<typeof initDatabase>;
 };
 
 export const setMeFromCreds = () => {
@@ -37,7 +95,10 @@ const AppContext = () => {
 		ready: false,
 		qr: null,
 		hostData: me,
-		database: initDatabase(),
+		database: initDatabase(config),
+		databaseCreds: initDatabase(configCreds),
+		databaseLease: initDatabase(configLease),
+		databaseMetadata: initDatabase(configMetadata),
 	};
 
 	const upsert = (data: Partial<ContextData>) => {

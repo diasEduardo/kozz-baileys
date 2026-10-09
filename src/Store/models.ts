@@ -130,187 +130,170 @@ export const mediaSchema = {
 	},
 };
 
-export const credsSchema = {
-	name: 'creds',
+export const messageLeaseSchema: Realm.ObjectSchema = {
+	name: 'messageLeaseLow',
 	primaryKey: 'id',
 	properties: {
 		id: 'string',
-		noiseKey: {
-			private: {
-				type: 'string',
-				data: 'string'
-			},
-			public: {
-				type: 'string',
-				data: 'string'
-			}
-		},
-		pairingEphemeralKeyPair: {
-			private: {
-				type: 'string',
-				data: 'string'
-			},
-			public: {
-				type: 'string',
-				data: 'string'
-			}
-		},
-		signedIdentityKey: {
-			private: {
-				type: 'string',
-				data: 'string'
-			},
-			public: {
-				type: 'string',
-				data: 'string'
-			}
-		},
-		signedPreKey: {
-			keyPair: {
-				private: {
-					type: 'string',
-					data: 'string'
-				},
-				public: {
-					type: 'string',
-					data: 'string'
-				}
-			},
-			signature: {
-				type: 'string',
-				data: 'string'
-			},
-			keyId: 'int'
-		},
-		registrationId: 'int',
-		advSecretKey: 'string',
-		processedHistoryMessages: 'any[]',
-		nextPreKeyId: 'int',
-		firstUnuploadedPreKeyId: 'int',
-		accountSyncCounter: 'int',
-		accountSettings: {
-			unarchiveChats: 'bool'
-		},
-		registered: 'bool',
-		account: {
-			details: 'string',
-			accountSignatureKey: 'string',
-			accountSignature: 'string',
-			deviceSignature: 'string'
-		},
-		me: {
-			id: 'string',
-			lid: 'string'
-		},
-		signalIdentities: [{
-			identifier: {
-				name: 'string',
-				deviceId: 'int'
-			},
-			identifierKey: {
-				type: 'string',
-				data: 'string'
-			}
-		}],
-		platform: 'string',
-		routingInfo: {
-			type: 'string',
-			data: 'string'
-		},
-		lastAccountSyncTimestamp: 'int',
-		lastPropHash: 'string',
-		myAppStateKeyId: 'string'
-	}
+    timestamp: {
+      type: 'int',
+      indexed: true,
+    },
+		data: 'string',
+	},
+};
+
+export type MessageLeaseModel = {
+	id: string;
+	timestamp: number;
+	isProcessing:boolean;
+	data: string;
+};
+
+export const credsSchema = {
+	name: 'creds',
+
+	primaryKey: 'id',
+
+	properties: {
+		id: 'string',
+		data: 'string',
+	},
 };
 
 export type CredsModel = {
-	id: string,
-		noiseKey: {
-			private: {
-				type: string,
-				data: string
-			},
-			public: {
-				type: string,
-				data: string
-			}
-		},
-		pairingEphemeralKeyPair: {
-			private: {
-				type: string,
-				data: string
-			},
-			public: {
-				type: string,
-				data: string
-			}
-		},
-		signedIdentityKey: {
-			private: {
-				type: string,
-				data: string
-			},
-			public: {
-				type: string,
-				data: string
-			}
-		},
-		signedPreKey: {
-			keyPair: {
-				private: {
-					type: string,
-					data: string
-				},
-				public: {
-					type: string,
-					data: string
-				}
-			},
-			signature: {
-				type: string,
-				data: string
-			},
-			keyId: number
-		},
-		registrationId: number,
-		advSecretKey: string,
-		processedHistoryMessages: any[],
-		nextPreKeyId: number,
-		firstUnuploadedPreKeyId: number,
-		accountSyncCounter: number,
-		accountSettings: {
-			unarchiveChats: boolean
-		},
-		registered: boolean,
-		account: {
-			details: string,
-			accountSignatureKey: string,
-			accountSignature: string,
-			deviceSignature: string
-		},
-		me: {
-			id: string,
-			lid: string
-		},
-		signalIdentities: [{
-			identifier: {
-				name: string,
-				deviceId: number
-			},
-			identifierKey: {
-				type: string,
-				data: string
-			}
-		}],
-		platform: string,
-		routingInfo: {
-			type: string,
-			data: string
-		},
-		lastAccountSyncTimestamp: number,
-		lastPropHash: string,
-		myAppStateKeyId: string
-	} | any;
+	id: string;
+
+	noiseKey?: {
+		private?: {
+			type?: string;
+			data?: string;
+		};
+		public?: {
+			type?: string;
+			data?: string;
+		};
+	};
+
+	pairingEphemeralKeyPair?: {
+		private?: {
+			type?: string;
+			data?: string;
+		};
+		public?: {
+			type?: string;
+			data?: string;
+		};
+	};
+
+	signedIdentityKey?: {
+		private?: {
+			type?: string;
+			data?: string;
+		};
+		public?: {
+			type?: string;
+			data?: string;
+		};
+	};
+
+	signedPreKey?: {
+		keyPair?: {
+			private?: {
+				type?: string;
+				data?: string;
+			};
+			public?: {
+				type?: string;
+				data?: string;
+			};
+		};
+
+		signature?: {
+			type?: string;
+			data?: string;
+		};
+
+		keyId?: number;
+	};
+
+	registrationId?: number;
+
+	advSecretKey?: string;
+
+	processedHistoryMessages?: any[];
+
+	nextPreKeyId?: number;
+
+	firstUnuploadedPreKeyId?: number;
+
+	accountSyncCounter?: number;
+
+	accountSettings?: {
+		unarchiveChats?: boolean;
+	};
+
+	registered?: boolean;
+
+	account?: {
+		details?: string;
+		accountSignatureKey?: string;
+		accountSignature?: string;
+		deviceSignature?: string;
+	};
+
+	me?: {
+		id?: string;
+		lid?: string;
+	};
+
+	signalIdentities?: {
+		identifier?: {
+			name?: string;
+			deviceId?: number;
+		};
+
+		identifierKey?: {
+			type?: string;
+			data?: string;
+		};
+	}[];
+
+	platform?: string;
+
+	routingInfo?: {
+		type?: string;
+		data?: string;
+	};
+
+	lastAccountSyncTimestamp?: number;
+
+	lastPropHash?: string;
+
+	myAppStateKeyId?: string;
+} | any;
+
+	export type KeysModel = 
+	{
+		id: string;
+		sessionId: string;
+		type: string;
+		keyId: string;
+		value: string;
+	};
+
+export const keysSchema = {
+	name: 'keys',
+	primaryKey: 'id',
+	properties: {
+		id: 'string',
+		sessionId: 'string',
+		type: 'string',
+		keyId: 'string',
+		value: 'string'
+	},
+};
+
 
 	export type groupParticipantMetadata = 
 	{
@@ -373,6 +356,8 @@ export type EntityMap = {
 	chatMetadata: ChatMetadata;
 	privateChat: PrivateChatModel;
 	creds : CredsModel;
+	keys : KeysModel;
+	messageLeaseLow : MessageLeaseModel;
 	groupParticipantMetadata: groupParticipantMetadata;
 	groupParticipantUpdate: groupParticipantUpdate;
 };

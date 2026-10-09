@@ -12,6 +12,7 @@ export const createResourceGatheres = (
 	baileys: ReturnType<(typeof baileysFunctions)>
 ) => {
 	const _getProfilePicUrl = async ({ id }: { id: string }) => {
+		
 		if (!id) {
 			return console.warn('Tried to fetch profile pic but no ID was provided!');
 		}
