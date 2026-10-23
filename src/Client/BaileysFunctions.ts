@@ -77,7 +77,7 @@ const baileysFunctions = (client: WaSocket) => {
 		},
 		quoteId?: string
 	) => {
-		//console.log({ media, options });
+		console.log({ media, options });
 
 		const sendMediaOptions: Partial<AnyMessageContent> = {
 			viewOnce: options?.viewOnce,
@@ -107,7 +107,7 @@ const baileysFunctions = (client: WaSocket) => {
 				author: '\nKozz-Bot\ndo Tramonta',
 			};
 			const img = new webp.Image();
-			const stickerPackId = generateHash(32);
+			const stickerPackId = await generateHash(32);
 			const packname = metadata.name;
 			const author = metadata.author;
 			const emojis = emoji;
@@ -121,6 +121,7 @@ const baileysFunctions = (client: WaSocket) => {
 				0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07,
 				0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00,
 			]);
+			
 			let jsonBuffer = Buffer.from(JSON.stringify(json), 'utf8');
 			// @ts-ignore
 			let exif = Buffer.concat([exifAttr, jsonBuffer]);

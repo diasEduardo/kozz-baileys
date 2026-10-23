@@ -4,6 +4,7 @@ import baileysFunctions from 'src/Client/BaileysFunctions.js';
 import Context from 'src/Context/index.js';
 import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore.js';
 import { getChatOrder } from 'src/Store/MetadataStore.js';
+import { getChatHistory } from 'src/Store/MessageStore.js';
 
 
 
@@ -83,6 +84,11 @@ export const createResourceGatheres = (
 		};
 	};
 
+	const _getChatHistory = async ({ id,limit = 1000,timestamp = 0 }: { id: string, limit:number, timestamp:number }) => {
+		const chatHistory = await getChatHistory(id, limit, timestamp );
+		return chatHistory;
+	};
+
 	boundary.onAskResource('contact_profile_pic', _getProfilePicUrl);
 	boundary.onAskResource('group_chat_info', _getGroupChatInfo);
 	boundary.onAskResource('group_admin_list', _groupAdminList);
@@ -92,4 +98,6 @@ export const createResourceGatheres = (
 	boundary.onAskResource('chat_order', getChatOrder);
 
 	boundary.onAskResource('chat_status', fetchChatStatus);
+
+	boundary.onAskResource('chat_history', _getChatHistory);
 };

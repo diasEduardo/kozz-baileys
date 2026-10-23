@@ -26,11 +26,11 @@ export const saveMedia = async (media: Media): Promise<string> => {
 	return mediaId;
 };
 
-export const getMedia = async (id: string): Promise<Media> => {
-	const file = await fs.readFile(`${fileDownloadPath}/${id}`, {
+export const getMedia = async (id: string): Promise<Media|undefined> => {
+	try{
+		const file = await fs.readFile(`${fileDownloadPath}/${id}`, {
 		encoding: 'base64url',
 	});
-
 	return {
 		data: file,
 		fileName: id,
@@ -40,6 +40,12 @@ export const getMedia = async (id: string): Promise<Media> => {
 		transportType: 'b64',
 		duration: null,
 	};
+	}catch(e){
+		return;
+	}
+	
+
+	
 };
 
 let isDeletingFromMidiaFolder = false;

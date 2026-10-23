@@ -110,6 +110,28 @@ export const initDatabase = (config:Realm.Configuration) => {
 		}
 	};
 
+	const getValuesSorted = <Type extends keyof EntityMap>(
+		entityType: Type,
+		filterFn: (data: EntityMap[Type]) => boolean,
+		sortField: keyof EntityMap[Type],
+		sortDirection: 'asc' | 'des' = 'asc',
+		limit = 0
+	) => {
+		try {
+			const objs = instance
+				.objects(String(entityType))
+				.sorted(sortField.toString(), sortDirection === 'asc')
+				.toJSON()
+				.filter(filterFn) as EntityMap[Type][];
+
+			return limit === 0 ? objs : objs.slice(0, limit);
+		} catch (e) {
+			console.warn(
+				`Error while fetcing ${String(entityType)}, sorting ${sortField.toString()} in ${sortDirection}. No database transaction was done. Error = ${e}`
+			);
+		}
+	};
+
 	const deleteValues = <Type extends keyof EntityMap>(
 		entityType: Type,
 		filterFn: (data: EntityMap[Type]) => boolean
@@ -183,6 +205,7 @@ export const initDatabase = (config:Realm.Configuration) => {
 		deleteValues,
 		getById,
 		getSorted,
+		getValuesSorted,
 		getNext,
 		upsertMany,
 		getAll

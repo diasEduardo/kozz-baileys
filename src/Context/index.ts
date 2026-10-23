@@ -15,7 +15,9 @@ import {
 	messageLeaseSchema
 } from 'src/Store/models.js';
 
-const databasePath = "I:/gitProject/my-kozz-bot/kozz-baileys";
+//const databasePath = "I:/gitProject/my-kozz-bot/kozz-baileys";
+
+const databasePath = "/home/eduardo/gitProjects/kozz-baileys/";
 const schemaVersion = 14;
 
 const configCreds = {

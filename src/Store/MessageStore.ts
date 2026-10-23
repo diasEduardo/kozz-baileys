@@ -78,6 +78,39 @@ export const getMessage = async (
 	};
 };
 
+export const getChatHistory = async (
+	id: string,
+	limit:number,
+	timestamp:number 
+): Promise<any> => {
+
+	let messageList: any[] | null =
+		((await database.getValuesSorted('message', 
+			( (msg:any) => (msg.timestamp! < timestamp || timestamp == 0) && msg.to == id),
+		'timestamp', 'des', limit
+		)) as any[]) ?? null;
+	messageList = messageList.filter((msg:any) => msg.media || msg.taggedConctactFriendlyBody.length > 0)	
+	if (!messageList) {
+		return null;
+	}
+	
+	for(let i = 0; i < messageList.length;i++){
+		const contact = await getContact(messageList[i].contact);
+		const media = messageList[i].media ? await getMedia(messageList[i].media) : undefined;
+		messageList[i] = {
+		...messageList[i],
+		taggedContacts: JSON.parse(`[${messageList[i].taggedContacts}]`),
+		contact: contact,
+		quotedMessage: messageList[i].quotedMessage
+			? (await getMessage(messageList[i].quotedMessage)) ?? undefined
+			: undefined,
+		media,
+	}
+	}
+	
+	return messageList;
+};
+
 export const deleteFromMessageDb = async () => {
 	const dayOffset = process.env.DATABASE_STORED_DAYS || 7;
 	const pugeDate = new Date();
