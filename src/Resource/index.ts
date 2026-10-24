@@ -84,8 +84,8 @@ export const createResourceGatheres = (
 		};
 	};
 
-	const _getChatHistory = async ({ id,limit = 1000,timestamp = 0 }: { id: string, limit:number, timestamp:number }) => {
-		const chatHistory = await getChatHistory(id, limit, timestamp );
+	const _getChatHistory = async ({ chatid,limit = 1000,timestamp = 0 }: { chatid: string, limit:number, timestamp:number }) => {
+		const chatHistory = await getChatHistory(chatid, limit, timestamp );
 		return chatHistory;
 	};
 

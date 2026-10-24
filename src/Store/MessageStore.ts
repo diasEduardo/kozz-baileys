@@ -79,15 +79,15 @@ export const getMessage = async (
 };
 
 export const getChatHistory = async (
-	id: string,
+	chatid: string,
 	limit:number,
 	timestamp:number 
 ): Promise<any> => {
 
 	let messageList: any[] | null =
 		((await database.getValuesSorted('message', 
-			( (msg:any) => (msg.timestamp! < timestamp || timestamp == 0) && msg.to == id),
-		'timestamp', 'des', limit
+			( (msg:any) => (msg.timestamp! >= timestamp || timestamp == 0) && msg.to == chatid),
+		'timestamp', 'asc', limit
 		)) as any[]) ?? null;
 	messageList = messageList.filter((msg:any) => msg.media || msg.taggedConctactFriendlyBody.length > 0)	
 	if (!messageList) {
