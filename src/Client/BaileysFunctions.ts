@@ -77,7 +77,7 @@ const baileysFunctions = (client: WaSocket) => {
 		},
 		quoteId?: string
 	) => {
-		console.log({ media, options });
+		//console.log({ media, options });
 
 		const sendMediaOptions: Partial<AnyMessageContent> = {
 			viewOnce: options?.viewOnce,

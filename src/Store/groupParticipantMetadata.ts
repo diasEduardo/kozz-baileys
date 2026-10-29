@@ -99,3 +99,11 @@ export const deleteFromGroupParticipantMetadataDb = async () => {
 	}
 	
 }
+
+export const getChatMetada = async (filter: any) => {
+	try {
+		return databaseMetadata.getValues('groupParticipantMetadata', filter);
+	} catch (e) {
+		return 0;
+	}
+};

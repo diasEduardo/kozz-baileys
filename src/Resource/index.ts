@@ -5,6 +5,8 @@ import Context from 'src/Context/index.js';
 import { getChatDetails, getGroupChat, getUnreadCount } from 'src/Store/ChatStore.js';
 import { getChatOrder } from 'src/Store/MetadataStore.js';
 import { getChatHistory } from 'src/Store/MessageStore.js';
+import moment from 'moment';
+import { getChatMetada } from 'src/Store/groupParticipantMetadata.js';
 
 
 
@@ -89,6 +91,27 @@ export const createResourceGatheres = (
 		return chatHistory;
 	};
 
+	const _getChatMetadata = async ({ chatId,dtStart, dtFinish }: { chatId: string, dtStart:string, dtFinish:string }) => {
+		
+		let dtCurrent = moment(dtStart,`YYYY-MM-DD`);
+		let dtLimit = moment(dtFinish,`YYYY-MM-DD`);
+
+		if(dtCurrent > dtLimit){
+			return {erro:`Data inicial e maior que a data final`};
+		}
+
+		let dateList = []
+		while (dtCurrent <= dtLimit){
+			dateList.push(dtCurrent.format(`YYYY-MM-DD`))
+			dtCurrent = dtCurrent.add(1,`days`);
+		}
+		
+		const chatMetadata = await getChatMetada(
+			(msg:any) => (msg.groupId == chatId) && dateList.includes(msg.date));
+		return chatMetadata;
+	};
+
+
 	boundary.onAskResource('contact_profile_pic', _getProfilePicUrl);
 	boundary.onAskResource('group_chat_info', _getGroupChatInfo);
 	boundary.onAskResource('group_admin_list', _groupAdminList);
@@ -100,4 +123,5 @@ export const createResourceGatheres = (
 	boundary.onAskResource('chat_status', fetchChatStatus);
 
 	boundary.onAskResource('chat_history', _getChatHistory);
+	boundary.onAskResource('chat_metadata', _getChatMetadata);
 };
